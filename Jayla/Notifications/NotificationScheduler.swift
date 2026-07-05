@@ -65,6 +65,51 @@ enum NotificationScheduler {
                                                     trigger: trigger))
     }
 
+    #if DEBUG
+    /// Print the authorization + delivery settings and what's pending —
+    /// run from Xcode and read the console to see what iOS will actually
+    /// do with our reminder.
+    static func debugDumpStatus() async {
+        let center = UNUserNotificationCenter.current()
+        let s = await center.notificationSettings()
+        print("🔔 [Jayla] notif auth: \(name(of: s.authorizationStatus))"
+            + " · alerts: \(name(of: s.alertSetting))"
+            + " · lock screen: \(name(of: s.lockScreenSetting))"
+            + " · notif center: \(name(of: s.notificationCenterSetting))"
+            + " · sound: \(name(of: s.soundSetting))")
+        let pending = await center.pendingNotificationRequests()
+        if pending.isEmpty {
+            print("🔔 [Jayla] no pending reminder")
+        }
+        for request in pending {
+            let fire = (request.trigger as? UNCalendarNotificationTrigger)?
+                .nextTriggerDate()?
+                .formatted(date: .omitted, time: .standard) ?? "?"
+            print("🔔 [Jayla] pending '\(request.identifier)' → fires \(fire)")
+        }
+    }
+
+    private static func name(of status: UNAuthorizationStatus) -> String {
+        switch status {
+        case .notDetermined: "notDetermined"
+        case .denied: "DENIED"
+        case .authorized: "authorized"
+        case .provisional: "provisional (quiet)"
+        case .ephemeral: "ephemeral"
+        @unknown default: "unknown"
+        }
+    }
+
+    private static func name(of setting: UNNotificationSetting) -> String {
+        switch setting {
+        case .notSupported: "n/a"
+        case .disabled: "OFF"
+        case .enabled: "on"
+        @unknown default: "unknown"
+        }
+    }
+    #endif
+
     static func cancelFeedReminder() {
         UNUserNotificationCenter.current()
             .removePendingNotificationRequests(withIdentifiers: [pendingFeedID])

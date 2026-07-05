@@ -33,6 +33,9 @@ struct JaylaApp: App {
                         .debugDumpAll()
                     #endif
                     await NotificationScheduler.requestProvisionalAuthorization()
+                    #if DEBUG
+                    await NotificationScheduler.debugDumpStatus()
+                    #endif
                 }
         }
         .modelContainer(ModelContainerProvider.shared)

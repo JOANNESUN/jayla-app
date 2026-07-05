@@ -17,7 +17,10 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification
     ) async -> UNNotificationPresentationOptions {
-        [.banner, .sound]
+        #if DEBUG
+        print("🔔 [Jayla] reminder FIRED while app in foreground → showing banner")
+        #endif
+        return [.banner, .sound]
     }
 
     /// Action taps land here (LOG_FEED / SNOOZE_15 / default open).
@@ -27,6 +30,9 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
     ) async {
+        #if DEBUG
+        print("🔔 [Jayla] user responded to reminder: \(response.actionIdentifier)")
+        #endif
         // Phase 4: background logging + snooze land here.
     }
 }
