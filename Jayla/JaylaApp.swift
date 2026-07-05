@@ -26,6 +26,12 @@ struct JaylaApp: App {
                 // against our hardcoded white cards.
                 .preferredColorScheme(.light)
                 .task {
+                    #if DEBUG
+                    // See everything that's stored: run from Xcode and
+                    // read the console panel at the bottom.
+                    ActivityRepository(context: ModelContainerProvider.shared.mainContext)
+                        .debugDumpAll()
+                    #endif
                     await NotificationScheduler.requestProvisionalAuthorization()
                 }
         }

@@ -57,5 +57,8 @@ enum Rescheduler {
             at: prediction.nextTime,
             babyName: baby.name
         )
+        #if DEBUG
+        print("⏰ [Jayla] Feed reminder scheduled for \(prediction.nextTime.formatted(date: .omitted, time: .standard)) (\(prediction.confidence.label), \(prediction.sampleCount) intervals, blend \(String(format: "%.2f", prediction.priorBlend)))")
+        #endif
     }
 }
