@@ -100,8 +100,9 @@ day of 4h feeds must predict > 3.5h.
   promote to prominent alerts on an explicit user affordance later.
 - Category `FEED_REMINDER` with a `LOG_FEED` action declared **without**
   `.foreground` (so it logs in the background) plus `SNOOZE_15`.
-  `interruptionLevel = .timeSensitive` (needs the time-sensitive
-  entitlement) so hungry-baby alerts pierce Focus.
+  `interruptionLevel` is `.active` for now — `.timeSensitive` (pierces
+  Focus) needs an entitlement that personal/free dev teams cannot
+  provision; revisit on a paid Apple Developer account.
 - **One pending feed notification**, stable id `"pending_feed"` —
   reschedule = cancel + re-add, inherently idempotent.
 - **Background write:** the action handler must NOT touch the UI's
@@ -127,10 +128,10 @@ Each phase is independently shippable.
   line on every tracker card, refreshed each minute via `TimelineView`.
 - [x] **Phase 3 — Notifications, foreground path.** Scheduler,
   categories/actions, provisional auth, AppDelegate, schedule-on-log via
-  the `Rescheduler` choke point, badge clear on foreground,
-  `Jayla.entitlements` + time-sensitive (scoped to iOS SDKs so the
-  macOS type-check build needs no provisioning profile). Debug hook:
+  the `Rescheduler` choke point, badge clear on foreground. Debug hook:
   `JAYLA_REMINDER_IN_SECONDS` env var schedules a fast test reminder.
+  (Time-sensitive entitlement was dropped: personal dev teams can't
+  provision it — Apple rejects the profile. Re-add on a paid account.)
 - [ ] **Phase 4 — Background action logging.** `@ModelActor
   BackgroundLogger`, background `didReceive` handler, idempotency guard,
   badge, snooze. (Hardest; depends on 1–3.)

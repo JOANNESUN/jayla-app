@@ -48,10 +48,11 @@ enum NotificationScheduler {
         content.badge = 1 // cleared when the app comes to the foreground
         content.categoryIdentifier = NotificationCategories.feedReminder
         content.threadIdentifier = "feed"
-        // Pierces Focus/DND — a hungry baby doesn't wait. Requires the
-        // time-sensitive entitlement (Jayla.entitlements); without it the
-        // system quietly downgrades to a normal alert.
-        content.interruptionLevel = .timeSensitive
+        // .timeSensitive (pierces Focus/DND) needs an entitlement that
+        // personal (free) dev teams cannot provision — Apple rejects the
+        // profile outright. Revisit if the account ever moves to a paid
+        // Apple Developer membership.
+        content.interruptionLevel = .active
 
         let components = Calendar.current.dateComponents(
             [.year, .month, .day, .hour, .minute, .second], from: date
