@@ -1,0 +1,10 @@
+# Xcode user state (window layout, breakpoints, schemes) — per-machine noise
+xcuserdata/
+*.xcuserstate
+
+# Build artifacts
+DerivedData/
+build/
+
+# macOS
+.DS_Store

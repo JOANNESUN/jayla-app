@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SwiftData
 
 @main
 struct JaylaApp: App {
@@ -13,5 +14,6 @@ struct JaylaApp: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(ModelContainerProvider.shared)
     }
 }

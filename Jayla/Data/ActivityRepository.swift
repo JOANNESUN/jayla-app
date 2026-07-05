@@ -1,0 +1,57 @@
+//
+//  ActivityRepository.swift
+//  Jayla
+//
+//  Thin @MainActor wrapper over the UI's ModelContext. Views and view
+//  models talk to this instead of touching FetchDescriptors directly.
+//  Every prediction query pulls only a recent window (fetchLimit), never
+//  full history — the query-layer half of the "don't regress as she
+//  grows" story.
+//
+
+import Foundation
+import SwiftData
+
+@MainActor
+final class ActivityRepository {
+    private let context: ModelContext
+
+    init(context: ModelContext) {
+        self.context = context
+    }
+
+    @discardableResult
+    func log(_ type: ActivityType,
+             at time: Date = .now,
+             durationSeconds: Double? = nil,
+             source: String = "app") -> ActivityEvent {
+        let event = ActivityEvent(type: type,
+                                  timestamp: time,
+                                  durationSeconds: durationSeconds,
+                                  source: source)
+        context.insert(event)
+        try? context.save()
+        return event
+    }
+
+    func recentEvents(of type: ActivityType, limit: Int = 20) -> [ActivityEvent] {
+        let raw = type.rawValue
+        var descriptor = FetchDescriptor<ActivityEvent>(
+            predicate: #Predicate { $0.typeRaw == raw },
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.fetchLimit = limit
+        return (try? context.fetch(descriptor)) ?? []
+    }
+
+    func lastEvent(of type: ActivityType) -> ActivityEvent? {
+        recentEvents(of: type, limit: 1).first
+    }
+
+    /// Undo the most recent log of a type.
+    func deleteLatest(of type: ActivityType) {
+        guard let last = lastEvent(of: type) else { return }
+        context.delete(last)
+        try? context.save()
+    }
+}
