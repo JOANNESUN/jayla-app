@@ -59,6 +59,7 @@ struct OnboardingView: View {
                                    displayedComponents: .date)
                             .labelsHidden()
                             .tint(Theme.accent)
+                            .foregroundStyle(Theme.ink)
                     }
                     .padding(16)
                     .background(.white, in: RoundedRectangle(cornerRadius: 22))
@@ -93,6 +94,8 @@ struct OnboardingView: View {
     private var nameField: some View {
         let field = TextField("Baby's name", text: $name)
             .font(.system(size: 17, design: .rounded))
+            .foregroundStyle(Theme.ink)
+            .tint(Theme.accent)
         #if os(iOS)
         return field.textInputAutocapitalization(.words)
         #else

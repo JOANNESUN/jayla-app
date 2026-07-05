@@ -26,22 +26,34 @@ extension Color {
 // warm salmon-pink walls, slate-blue sky and snow shadows, sage
 // shopfront, marigold awning. One namespace, used everywhere.
 enum Theme {
-    static let background = Color(hex: "F6E7E0")   // blush plaster
-    static let ink        = Color(hex: "43292A")   // dark rosewood
-    static let softInk    = Color(hex: "A88C86")   // faded mortar
-    static let accent     = Color(hex: "E07863")   // salmon coral (CTA, alert dot)
+    // Base
+    static let background = Color(hex: "FFF2D6")   // warm cream
+    static let ink        = Color(hex: "3A241F")   // dark painterly brown
+    static let softInk    = Color(hex: "8B6A5A")   // warm muted brown for secondary text
+    static let accent     = Color(hex: "FF6B5B")   // vibrant coral CTA
 
-    static let feedBadge  = Color(hex: "F8D5C9")   // salmon pink
-    static let feedInk    = Color(hex: "D66B57")
-    static let sleepBadge = Color(hex: "C4D3DE")   // slate blue
-    static let sleepInk   = Color(hex: "5A7890")
+    // Feed — pink / coral
+    static let feedBadge  = Color(hex: "FFE1EC")   // soft blossom pink background
+    static let feedInk    = Color(hex: "FF6FAE")   // vibrant blossom pink
 
-    // The old "diaper" palette is split into poop (sage) and pee
-    // (marigold), matching the four distinct activities we now track.
-    static let poopBadge  = Color(hex: "CCD9AC")
-    static let poopInk    = Color(hex: "6E8A4A")
-    static let peeBadge   = Color(hex: "F3DEA0")
-    static let peeInk     = Color(hex: "C89A34")
+    // Sleep — blue
+    static let sleepBadge = Color(hex: "DDF0FF")   // soft sky blue background
+    static let sleepInk   = Color(hex: "4DA6FF")   // vibrant sky blue
+
+    // Poop — green
+    static let poopBadge  = Color(hex: "DDF7D2")   // fresh green background
+    static let poopInk    = Color(hex: "34C759")   // vibrant leaf green
+
+    // Pee — yellow / marigold
+    static let peeBadge   = Color(hex: "FFF0B8")   // warm yellow background
+    static let peeInk     = Color(hex: "FFC61A")   // vibrant marigold
+
+    // Extra painterly accents from the reference images
+    static let lavender   = Color(hex: "8E5EEA")   // vivid lavender
+    static let peach      = Color(hex: "FFA34D")   // peach orange
+    static let emerald    = Color(hex: "00B88A")   // vivid plant green
+    static let cobalt     = Color(hex: "1E5EF5")   // deep blue
+    static let brickRed   = Color(hex: "E6322E")   // strong red
 }
 
 extension View {
