@@ -86,6 +86,21 @@ The app opens on the **onboarding screen** on first launch.
 
 ---
 
+## Running the prediction-engine tests
+
+The prediction engine (`Jayla/Prediction/`) is pure Swift with no UI or
+database dependencies, so its tests run straight from the terminal — no
+simulator, no Xcode scheme:
+
+```sh
+./JaylaTests/run.sh
+```
+
+It compiles the engine plus `JaylaTests/PredictionEngineTests.swift` with
+`swiftc` and runs them; the script exits non-zero if any check fails.
+
+---
+
 ## Resetting app data
 
 Jayla stores data locally with SwiftData. To get back to the onboarding

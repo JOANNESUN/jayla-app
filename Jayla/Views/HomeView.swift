@@ -22,14 +22,18 @@ struct HomeView: View {
         ZStack {
             Theme.background.ignoresSafeArea()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    header
-                    hero
-                    trackers
+            // everyMinute keeps the countdown and predictions fresh
+            // while the app is open; logging triggers @Query updates.
+            TimelineView(.everyMinute) { timeline in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        header
+                        hero(now: timeline.date)
+                        trackers(now: timeline.date)
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 32)
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 32)
             }
         }
         .onChange(of: pickerItem) { _, item in
@@ -98,14 +102,14 @@ struct HomeView: View {
 
     // MARK: - Hero
 
-    private var hero: some View {
+    private func hero(now: Date) -> some View {
         ZStack(alignment: .bottom) {
             PhotosPicker(selection: $pickerItem, matching: .images) {
                 photoBlock
             }
             .buttonStyle(.plain)
 
-            statusCard
+            statusCard(now: now)
                 .padding(.horizontal, 16)
                 .offset(y: 28)
         }
@@ -139,10 +143,11 @@ struct HomeView: View {
         }
     }
 
-    // Shows the most recent feed. In Phase 2 this becomes the prediction
-    // ("Next feed in 1h 0m") driven by the PredictionEngine.
-    private var statusCard: some View {
-        let lastFeed = lastEvent(.feed)
+    // The headline prediction: when the next feed is expected, with a
+    // live countdown. Falls back to a prompt until the first feed is
+    // logged (one event + the age-band prior is enough to predict).
+    private func statusCard(now: Date) -> some View {
+        let nextFeed = prediction(for: .feed, now: now)
         return HStack(spacing: 14) {
             Circle()
                 .fill(Theme.feedBadge)
@@ -153,18 +158,20 @@ struct HomeView: View {
                 )
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("Last feed")
+                Text(nextFeed == nil ? "Last feed" : "Next feed")
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(Theme.ink)
-                Text(lastFeed.map(relativeText) ?? "Not logged yet")
+                Text(nextFeed.map {
+                    "Around \(timeText($0.nextTime)) · \($0.confidence.label)"
+                } ?? "Not logged yet")
                     .font(.system(size: 14, design: .rounded))
                     .foregroundStyle(Theme.softInk)
             }
 
             Spacer()
 
-            if let lastFeed {
-                Text(timeText(lastFeed.timestamp))
+            if let nextFeed {
+                Text(countdownText(to: nextFeed.nextTime, from: now))
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(Theme.feedInk)
             }
@@ -176,7 +183,7 @@ struct HomeView: View {
 
     // MARK: - Trackers
 
-    private var trackers: some View {
+    private func trackers(now: Date) -> some View {
         VStack(spacing: 14) {
             ForEach(ActivityType.allCases) { type in
                 TrackerCard(
@@ -185,7 +192,7 @@ struct HomeView: View {
                     inkColor: type.inkColor,
                     title: type.label,
                     prediction: subtitle(for: type),
-                    confidence: "",
+                    confidence: predictionLine(for: type, now: now),
                     buttonLabel: type.logButtonLabel,
                     onLog: { log(type) }
                 )
@@ -202,6 +209,20 @@ struct HomeView: View {
     private func subtitle(for type: ActivityType) -> String {
         guard let last = lastEvent(type) else { return "Tap to log the first one" }
         return "Last \(relativeText(last))"
+    }
+
+    private func prediction(for type: ActivityType, now: Date) -> Prediction? {
+        PredictionEngine.predict(
+            timestamps: events.filter { $0.typeRaw == type.rawValue }.map(\.timestamp),
+            now: now,
+            config: .config(for: type, ageBand: baby.ageBand)
+        )
+    }
+
+    /// Colored footnote on each tracker card, e.g. "Next ~2:30 PM · Confident".
+    private func predictionLine(for type: ActivityType, now: Date) -> String {
+        guard let p = prediction(for: type, now: now) else { return "" }
+        return "Next ~\(timeText(p.nextTime)) · \(p.confidence.label)"
     }
 
     private func log(_ type: ActivityType) {
@@ -223,5 +244,17 @@ struct HomeView: View {
 
     private func relativeText(_ event: ActivityEvent) -> String {
         event.timestamp.formatted(.relative(presentation: .named))
+    }
+
+    /// "in 1h 5m" / "in 12m". The engine clamps predictions to the
+    /// future, so the remaining time is always positive.
+    private func countdownText(to date: Date, from now: Date) -> String {
+        let minutes = max(1, Int(date.timeIntervalSince(now) / 60))
+        let hours = minutes / 60
+        let rest = minutes % 60
+        if hours > 0 {
+            return rest == 0 ? "in \(hours)h" : "in \(hours)h \(rest)m"
+        }
+        return "in \(minutes)m"
     }
 }
