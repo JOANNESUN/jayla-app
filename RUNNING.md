@@ -101,6 +101,29 @@ It compiles the engine plus `JaylaTests/PredictionEngineTests.swift` with
 
 ---
 
+## Testing the feed reminder (Phase 3)
+
+A real prediction schedules hours ahead, so there's a debug shortcut:
+
+1. In Xcode: **Product → Scheme → Edit Scheme… → Run → Arguments** and add
+   an environment variable `JAYLA_REMINDER_IN_SECONDS` = `20`.
+2. Run on a simulator or your iPhone, tap **Log feed**, then background the
+   app (swipe home). The reminder arrives ~20 s later.
+3. **Long-press** the notification to see the **Log feed** / **Snooze 15
+   min** actions (they become functional in Phase 4).
+
+Two things to know:
+
+- Authorization is **provisional** ("quiet") by design — no permission
+  dialog, and reminders go to Notification Center silently rather than
+  banging a banner. Open one and tap **Keep → Deliver Prominently** to get
+  banners + sound, or flip it in **Settings → Notifications → Jayla**.
+- Remove the env var when you're done, or every logged feed keeps
+  scheduling a 20-second test reminder (Debug builds only; Release ignores
+  it entirely).
+
+---
+
 ## Resetting app data
 
 Jayla stores data locally with SwiftData. To get back to the onboarding

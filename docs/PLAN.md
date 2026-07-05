@@ -125,9 +125,12 @@ Each phase is independently shippable.
   weighting + CV confidence + age-band priors), CLI unit tests, HomeView
   wiring: next-feed countdown in the status card, prediction + confidence
   line on every tracker card, refreshed each minute via `TimelineView`.
-- [ ] **Phase 3 — Notifications, foreground path.** Scheduler,
-  categories/actions, provisional auth, AppDelegate, schedule-on-log,
-  `Jayla.entitlements` + time-sensitive.
+- [x] **Phase 3 — Notifications, foreground path.** Scheduler,
+  categories/actions, provisional auth, AppDelegate, schedule-on-log via
+  the `Rescheduler` choke point, badge clear on foreground,
+  `Jayla.entitlements` + time-sensitive (scoped to iOS SDKs so the
+  macOS type-check build needs no provisioning profile). Debug hook:
+  `JAYLA_REMINDER_IN_SECONDS` env var schedules a fast test reminder.
 - [ ] **Phase 4 — Background action logging.** `@ModelActor
   BackgroundLogger`, background `didReceive` handler, idempotency guard,
   badge, snooze. (Hardest; depends on 1–3.)
