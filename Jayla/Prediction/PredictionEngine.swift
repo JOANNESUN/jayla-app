@@ -33,9 +33,6 @@ nonisolated enum PredictionEngine {
         /// as much as one that just ended. Short enough that a growth
         /// shift dominates the estimate within about a day.
         var halfLife: TimeInterval = 18 * 3_600
-        /// Predictions are clamped to at least `now + grace` so logging
-        /// late never yields a time that is already in the past.
-        var grace: TimeInterval = 5 * 60
         /// Age-band prior interval used before enough data exists.
         /// nil → predictions require at least 2 events.
         var prior: TimeInterval?
@@ -110,9 +107,11 @@ nonisolated enum PredictionEngine {
             confidence = .learning
         }
 
-        let next = max(last.addingTimeInterval(expected),
-                       now.addingTimeInterval(config.grace))
-        return Prediction(nextTime: next,
+        // The honest estimate — deliberately NOT clamped to the future.
+        // A stable displayed time ("around 2:30") must not slide forward
+        // on every re-render; when it's overdue the UI says "any time
+        // now" and the notification scheduler clamps before scheduling.
+        return Prediction(nextTime: last.addingTimeInterval(expected),
                           expectedInterval: expected,
                           confidence: confidence,
                           sampleCount: n,

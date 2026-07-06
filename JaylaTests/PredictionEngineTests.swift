@@ -159,14 +159,19 @@ test("erratic intervals → low confidence") {
            "wildly varying gaps must not be confident, got \(p.confidence)")
 }
 
-test("late log clamp: prediction is never in the past") {
-    // Steady 3h rhythm but the last feed was 8h ago — raw next time
-    // (last + 3h) is 5h in the past. Must clamp to now + grace.
+test("late log: prediction is honest, NOT clamped to the future") {
+    // Steady 3h rhythm but the last feed was 8h ago — the honest next
+    // time (last + 3h) is 5h in the past. The engine must report it
+    // as-is: display shows "any time now" and only the notification
+    // scheduler clamps. (A clamped prediction slides forward on every
+    // re-render — the bug Joanne caught when logging Sleep moved the
+    // displayed feed time.)
     let last = t0.addingTimeInterval(-8 * hour)
     let times = series(endingAt: last, gaps: Array(repeating: 3 * hour, count: 6))
     let p = PredictionEngine.predict(timestamps: times, now: t0, config: feedConfig)!
-    expect(p.nextTime >= t0.addingTimeInterval(feedConfig.grace - 1),
-           "next time must be clamped to now + grace, got \(p.nextTime.timeIntervalSince(t0) / 60)m from now")
+    expectNear(p.nextTime.timeIntervalSince(last), 3 * hour, tolerance: 60,
+               "next = last + expected, even when already past")
+    expect(p.nextTime < t0, "an overdue prediction must stay in the past")
 }
 
 test("unsorted input is handled") {
