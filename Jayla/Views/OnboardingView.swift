@@ -33,14 +33,19 @@ struct OnboardingView: View {
 
                 VStack(spacing: 6) {
                     Text("Welcome to Jayla")
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .font(.system(.title, design: .rounded, weight: .bold))
                         .foregroundStyle(Theme.ink)
                     Text("Let's set up your baby's profile")
-                        .font(.system(size: 16, design: .rounded))
+                        .font(.system(.callout, design: .rounded))
                         .foregroundStyle(Theme.softInk)
                 }
 
-                photoPicker
+                VStack(spacing: 10) {
+                    photoPicker
+                    Text("Optional — you can change it any time")
+                        .font(.system(.footnote, design: .rounded))
+                        .foregroundStyle(Theme.softInk)
+                }
 
                 VStack(spacing: 14) {
                     nameField
@@ -49,11 +54,14 @@ struct OnboardingView: View {
                         .cardShadow()
 
                     HStack {
+                        // Visible label; hidden from VoiceOver because the
+                        // DatePicker below speaks its own "Birthday".
                         Text("Birthday")
-                            .font(.system(size: 17, design: .rounded))
+                            .font(.system(.body, design: .rounded))
                             .foregroundStyle(Theme.ink)
+                            .accessibilityHidden(true)
                         Spacer()
-                        DatePicker("",
+                        DatePicker("Birthday",
                                    selection: $birthdate,
                                    in: ...Date.now,
                                    displayedComponents: .date)
@@ -70,7 +78,7 @@ struct OnboardingView: View {
 
                 Button(action: save) {
                     Text("Get started")
-                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                        .font(.system(.headline, design: .rounded))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -93,7 +101,7 @@ struct OnboardingView: View {
 
     private var nameField: some View {
         let field = TextField("Baby's name", text: $name)
-            .font(.system(size: 17, design: .rounded))
+            .font(.system(.body, design: .rounded))
             .foregroundStyle(Theme.ink)
             .tint(Theme.accent)
         #if os(iOS)
@@ -115,10 +123,12 @@ struct OnboardingView: View {
                         .fill(Theme.sleepBadge)
                         .overlay(
                             VStack(spacing: 6) {
+                                // Fixed icon size: decorative, inside a
+                                // fixed 120pt circle.
                                 Image(systemName: "camera.fill")
                                     .font(.system(size: 24))
                                 Text("Add photo")
-                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                    .font(.system(.footnote, design: .rounded, weight: .medium))
                             }
                             .foregroundStyle(Theme.sleepInk)
                         )
@@ -128,6 +138,8 @@ struct OnboardingView: View {
             .clipShape(Circle())
             .shadow(color: .black.opacity(0.08), radius: 15, y: 6)
         }
+        .accessibilityLabel(photoData == nil ? "Add photo" : "Baby photo")
+        .accessibilityHint("Chooses a photo")
     }
 
     private func save() {

@@ -188,14 +188,29 @@ Each phase is independently shippable.
   into a plain-value core shared by both entry points; scheduler /
   categories / prediction types marked `nonisolated` (the project's
   default-MainActor isolation would otherwise fight the background path).
-- [x] **Phase 5 — UI/UX clarity pass.** One place per fact: the hero
-  status card owns the next-feed prediction (bell icon = "will remind
-  you"; confidence caveat only while uncertain). Tracker cards are
-  minimal — past fact only ("Fed 5 min ago", coarse human time, never
-  ticking seconds) plus the log button. No more duplicated predictions
-  or per-card confidence spam. Joanne's decision: predictions for
-  sleep/poop/pee no longer shown on cards at all (engine still computes
-  them; they return when there's an honest use, e.g. the nap nudge).
+- [x] **Phase 5 — UI/UX clarity pass.** One place per fact: the status
+  card owns the next-feed prediction (bell icon = "will remind you";
+  confidence caveat only while uncertain). Tracker cards are minimal —
+  past fact only ("Fed 5 min ago", coarse human time, never ticking
+  seconds) plus a button that just says "Log". Joanne's decision:
+  predictions for sleep/poop/pee no longer shown on cards at all
+  (engine still computes them; they return when there's an honest use,
+  e.g. the nap nudge). *Redesign (wireframe v3):* one-line greeting
+  (avatar + decorative bell removed — its red dot was fake); status
+  card first, then a round 150pt photo (the only tap-to-change-photo
+  spot), full-width feed/sleep rows, poop + pee compact side by side
+  (hierarchy = importance). Joanne's hand-drawn mascots (SVG image
+  sets, vector data preserved) replace SF Symbols in every badge; new
+  baby-face app icon (`app-icon.svg` next to the mascot sources,
+  rendered → flattened RGB PNG). *Accessibility:* all type on Dynamic
+  Type text styles (rounded design), badges on `@ScaledMetric`, layouts
+  flip vertical at accessibility sizes, app capped at AX2; VoiceOver
+  reads each card as one sentence (status card includes a spelled-out
+  countdown and "Jayla will remind you"; log buttons announce their
+  activity), pickers labeled. *Honest states:* overdue feed shows an
+  accent "any time now" + "Expected around …". Deferred: sleep-duration
+  UI (needs start/stop logging → Phase 6 nap work) and real dark mode
+  (Blush is deliberately light-only).
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like

@@ -25,6 +25,11 @@ struct JaylaApp: App {
                 // Dark Mode flips default text to white, which disappears
                 // against our hardcoded white cards.
                 .preferredColorScheme(.light)
+                // All type scales with Dynamic Type, and the layouts
+                // flip to vertical at accessibility sizes — but beyond
+                // AX2 (body ≥ 40pt) the photo/card geometry falls
+                // apart, so the app caps there: still ~2× text.
+                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                 .task {
                     #if DEBUG
                     // See everything that's stored: run from Xcode and
