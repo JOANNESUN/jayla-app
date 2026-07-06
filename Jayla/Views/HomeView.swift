@@ -251,10 +251,12 @@ struct HomeView: View {
         event.timestamp.formatted(.relative(presentation: .named))
     }
 
-    /// "in 1h 5m" / "in 12m". The engine clamps predictions to the
-    /// future, so the remaining time is always positive.
+    /// "in 1h 5m" / "in 12m" — or "any time now" once the predicted
+    /// time has passed (predictions are honest, not clamped).
     private func countdownText(to date: Date, from now: Date) -> String {
-        let minutes = max(1, Int(date.timeIntervalSince(now) / 60))
+        let remaining = date.timeIntervalSince(now)
+        guard remaining > 60 else { return "any time now" }
+        let minutes = Int(remaining / 60)
         let hours = minutes / 60
         let rest = minutes % 60
         if hours > 0 {

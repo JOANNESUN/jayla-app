@@ -68,12 +68,17 @@ enum Rescheduler {
             return
         }
 
+        // Scheduling-side clamp: the prediction may already be in the
+        // past (late log); an alert must always be in the future.
+        let grace: TimeInterval = 5 * 60
+        let fireDate = max(prediction.nextTime, now.addingTimeInterval(grace))
+
         await NotificationScheduler.scheduleFeedReminder(
-            at: prediction.nextTime,
+            at: fireDate,
             babyName: babyName
         )
         #if DEBUG
-        print("⏰ [Jayla] Feed reminder scheduled for \(prediction.nextTime.formatted(date: .omitted, time: .standard)) (\(prediction.confidence.label), \(prediction.sampleCount) intervals, blend \(String(format: "%.2f", prediction.priorBlend)))")
+        print("⏰ [Jayla] Feed reminder scheduled for \(fireDate.formatted(date: .omitted, time: .standard)) (\(prediction.confidence.label), \(prediction.sampleCount) intervals, blend \(String(format: "%.2f", prediction.priorBlend)))")
         #endif
     }
 }

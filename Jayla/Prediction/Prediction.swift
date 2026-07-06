@@ -28,9 +28,9 @@ nonisolated enum PredictionConfidence: String, Sendable {
 }
 
 nonisolated struct Prediction: Equatable, Sendable {
-    /// When the next occurrence is expected. Never in the past — the
-    /// engine clamps to `now + grace` so a late log can't produce an
-    /// already-expired alert.
+    /// When the next occurrence is expected. May be in the past (e.g.
+    /// after a late log) — display layers show "any time now", and the
+    /// notification scheduler clamps to the future before scheduling.
     let nextTime: Date
 
     /// Expected gap between occurrences, after recency weighting and
