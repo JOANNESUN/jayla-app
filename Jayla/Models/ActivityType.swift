@@ -53,6 +53,16 @@ enum ActivityType: String, Codable, CaseIterable, Identifiable {
 
     var logButtonLabel: String { "Log \(label.lowercased())" }
 
+    /// Past-tense verb for the "last happened" line, e.g. "Fed 5 min ago".
+    var pastTense: String {
+        switch self {
+        case .feed:  "Fed"
+        case .sleep: "Slept"
+        case .poop:  "Pooped"
+        case .pee:   "Peed"
+        }
+    }
+
     // Sleep is the only activity with a duration; the rest are moments.
     var hasDuration: Bool { self == .sleep }
 }

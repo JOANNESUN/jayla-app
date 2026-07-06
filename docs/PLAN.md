@@ -72,8 +72,10 @@ How a prediction is computed:
    weight halves every `halfLife` (feeds: 18h), so a growth shift dominates
    the estimate within about a day.
 4. **Expected interval** = weighted mean; **next time** =
-   `lastEvent + expected`, clamped to `max(…, now + 5min grace)` so a late
-   log never yields a time already in the past.
+   `lastEvent + expected`, deliberately NOT clamped to the future — a
+   clamped time slides forward on every re-render. Overdue predictions
+   display as "any time now"; only the Rescheduler clamps
+   (`max(…, now + 5min)`) before scheduling the alert.
 5. **Confidence** = weighted coefficient of variation (dimensionless, so
    comparable across ages): CV < 0.25 → `confident`, < 0.5 → `roughly`,
    else `learning`. Fewer than 3 intervals, or a still-blended prior, caps
@@ -186,15 +188,24 @@ Each phase is independently shippable.
   into a plain-value core shared by both entry points; scheduler /
   categories / prediction types marked `nonisolated` (the project's
   default-MainActor isolation would otherwise fight the background path).
-- [ ] **Phase 5 — Pattern-shift flagging & polish.** Change-point check
-  (recent ~3 intervals vs the prior window; a consistent >~25% shift
-  temporarily shortens the half-life and surfaces a hint like "feeds are
-  spacing out"), MAD outlier clamp, permission promotion, undo-last-log.
+- [x] **Phase 5 — UI/UX clarity pass.** One place per fact: the hero
+  status card owns the next-feed prediction (bell icon = "will remind
+  you"; confidence caveat only while uncertain). Tracker cards are
+  minimal — past fact only ("Fed 5 min ago", coarse human time, never
+  ticking seconds) plus the log button. No more duplicated predictions
+  or per-card confidence spam. Joanne's decision: predictions for
+  sleep/poop/pee no longer shown on cards at all (engine still computes
+  them; they return when there's an honest use, e.g. the nap nudge).
+- [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
+  check (recent ~3 intervals vs the prior window; a consistent >~25%
+  shift temporarily shortens the half-life and surfaces a hint like
+  "feeds are spacing out"), MAD outlier clamp, permission promotion.
   Candidates from the notification-philosophy analysis: stale-reminder
   content ("it's been a while since the last logged feed"), silent
   response-lag recording (measure-first), and later a daytime
-  nap-window nudge — see *Notification philosophy* above before
-  building any of these.
+  nap-window nudge (requires sleep start/stop logging — see the sleep
+  discussion in *Notification philosophy*) — re-read that section
+  before building any of these.
 
 ## Verification
 

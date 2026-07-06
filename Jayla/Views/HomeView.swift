@@ -143,9 +143,9 @@ struct HomeView: View {
         }
     }
 
-    // The headline prediction: when the next feed is expected, with a
-    // live countdown. Falls back to a prompt until the first feed is
-    // logged (one event + the age-band prior is enough to predict).
+    // The ONE place the next-feed prediction lives (the tracker cards
+    // only show what already happened). The little bell marks the
+    // honest contract: this is the prediction that will remind you.
     private func statusCard(now: Date) -> some View {
         let nextFeed = prediction(for: .feed, now: now)
         return HStack(spacing: 14) {
@@ -158,12 +158,19 @@ struct HomeView: View {
                 )
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(nextFeed == nil ? "Last feed" : "Next feed")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.ink)
-                Text(nextFeed.map {
-                    "Around \(timeText($0.nextTime)) · \($0.confidence.label)"
-                } ?? "Not logged yet")
+                HStack(spacing: 5) {
+                    Text("Next feed")
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Theme.ink)
+                    if nextFeed != nil {
+                        Image(systemName: "bell.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.softInk)
+                            .accessibilityLabel("will remind you")
+                    }
+                }
+                Text(nextFeed.map { statusLine(for: $0) }
+                    ?? "Log the first feed to start predictions")
                     .font(.system(size: 14, design: .rounded))
                     .foregroundStyle(Theme.softInk)
             }
@@ -181,8 +188,21 @@ struct HomeView: View {
         .shadow(color: .black.opacity(0.08), radius: 15, y: 6)
     }
 
+    /// "Around 10:52 PM", with a gentle caveat only while the engine
+    /// isn't confident yet. Once confident, the time stands alone.
+    private func statusLine(for prediction: Prediction) -> String {
+        let time = "Around \(timeText(prediction.nextTime))"
+        switch prediction.confidence {
+        case .confident: return time
+        case .roughly:   return time + " · rough guess"
+        case .learning:  return time + " · still learning"
+        }
+    }
+
     // MARK: - Trackers
 
+    // Tracker cards state only what already happened — one glance, one
+    // fact. All prediction talk lives in the status card above.
     private func trackers(now: Date) -> some View {
         VStack(spacing: 14) {
             ForEach(ActivityType.allCases) { type in
@@ -191,8 +211,7 @@ struct HomeView: View {
                     badgeColor: type.badgeColor,
                     inkColor: type.inkColor,
                     title: type.label,
-                    prediction: subtitle(for: type),
-                    confidence: predictionLine(for: type, now: now),
+                    subtitle: subtitle(for: type, now: now),
                     buttonLabel: type.logButtonLabel,
                     onLog: { log(type) }
                 )
@@ -206,9 +225,9 @@ struct HomeView: View {
         events.first { $0.type == type }
     }
 
-    private func subtitle(for type: ActivityType) -> String {
+    private func subtitle(for type: ActivityType, now: Date) -> String {
         guard let last = lastEvent(type) else { return "Tap to log the first one" }
-        return "Last \(relativeText(last))"
+        return "\(type.pastTense) \(humanTime(since: last.timestamp, now: now))"
     }
 
     private func prediction(for type: ActivityType, now: Date) -> Prediction? {
@@ -217,12 +236,6 @@ struct HomeView: View {
             now: now,
             config: .config(for: type, ageBand: baby.ageBand)
         )
-    }
-
-    /// Colored footnote on each tracker card, e.g. "Next ~2:30 PM · Confident".
-    private func predictionLine(for type: ActivityType, now: Date) -> String {
-        guard let p = prediction(for: type, now: now) else { return "" }
-        return "Next ~\(timeText(p.nextTime)) · \(p.confidence.label)"
     }
 
     private func log(_ type: ActivityType) {
@@ -247,8 +260,19 @@ struct HomeView: View {
         date.formatted(date: .omitted, time: .shortened)
     }
 
-    private func relativeText(_ event: ActivityEvent) -> String {
-        event.timestamp.formatted(.relative(presentation: .named))
+    /// Coarse, calm relative time: "just now" under a minute, then
+    /// minutes/hours — never ticking seconds, never "Last now".
+    private func humanTime(since date: Date, now: Date) -> String {
+        let seconds = now.timeIntervalSince(date)
+        if seconds < 60 { return "just now" }
+        let minutes = Int(seconds / 60)
+        if minutes < 60 { return "\(minutes) min ago" }
+        let hours = minutes / 60
+        let rest = minutes % 60
+        if hours < 24 {
+            return rest == 0 ? "\(hours)h ago" : "\(hours)h \(rest)m ago"
+        }
+        return date.formatted(date: .abbreviated, time: .shortened)
     }
 
     /// "in 1h 5m" / "in 12m" — or "any time now" once the predicted

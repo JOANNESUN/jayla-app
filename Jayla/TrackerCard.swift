@@ -14,8 +14,7 @@ struct TrackerCard: View {
     let badgeColor: Color
     let inkColor: Color
     let title: String
-    let prediction: String
-    let confidence: String
+    let subtitle: String    // what already happened, e.g. "Fed 5 min ago"
     let buttonLabel: String
     // Called when the mom taps the log button. Defaults to a no-op so
     // previews and static uses don't have to supply one.
@@ -36,14 +35,10 @@ struct TrackerCard: View {
                 Text(title)
                     .font(.system(size: 17, weight: .semibold, design: .rounded))
                     .foregroundStyle(Theme.ink)
-                Text(prediction)
+                Text(subtitle)
                     .font(.system(size: 14, design: .rounded))
                     .foregroundStyle(Theme.softInk)
-                if !confidence.isEmpty {
-                    Text(confidence)
-                        .font(.system(size: 12, design: .rounded))
-                        .foregroundStyle(inkColor)
-                }
+                    .lineLimit(1)
             }
 
             Spacer()
@@ -71,8 +66,7 @@ struct TrackerCard: View {
         badgeColor: Theme.feedBadge,
         inkColor: Theme.feedInk,
         title: "Feed",
-        prediction: "Next around 2:30 PM",
-        confidence: "confident",
+        subtitle: "Fed 25 min ago",
         buttonLabel: "Log feed"
     )
     .padding()
