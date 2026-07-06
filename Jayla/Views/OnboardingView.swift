@@ -33,17 +33,17 @@ struct OnboardingView: View {
 
                 VStack(spacing: 6) {
                     Text("Welcome to Jayla")
-                        .font(.system(.title, design: .rounded, weight: .bold))
+                        .font(Theme.display(28, relativeTo: .title))
                         .foregroundStyle(Theme.ink)
                     Text("Let's set up your baby's profile")
-                        .font(.system(.callout, design: .rounded))
+                        .font(Theme.text(16, relativeTo: .callout))
                         .foregroundStyle(Theme.softInk)
                 }
 
                 VStack(spacing: 10) {
                     photoPicker
                     Text("Optional — you can change it any time")
-                        .font(.system(.footnote, design: .rounded))
+                        .font(Theme.text(13, relativeTo: .footnote))
                         .foregroundStyle(Theme.softInk)
                 }
 
@@ -57,7 +57,7 @@ struct OnboardingView: View {
                         // Visible label; hidden from VoiceOver because the
                         // DatePicker below speaks its own "Birthday".
                         Text("Birthday")
-                            .font(.system(.body, design: .rounded))
+                            .font(Theme.text(17, relativeTo: .body))
                             .foregroundStyle(Theme.ink)
                             .accessibilityHidden(true)
                         Spacer()
@@ -78,7 +78,7 @@ struct OnboardingView: View {
 
                 Button(action: save) {
                     Text("Get started")
-                        .font(.system(.headline, design: .rounded))
+                        .font(Theme.display(17, relativeTo: .headline))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
@@ -101,7 +101,7 @@ struct OnboardingView: View {
 
     private var nameField: some View {
         let field = TextField("Baby's name", text: $name)
-            .font(.system(.body, design: .rounded))
+            .font(Theme.text(17, relativeTo: .body))
             .foregroundStyle(Theme.ink)
             .tint(Theme.accent)
         #if os(iOS)
@@ -128,7 +128,7 @@ struct OnboardingView: View {
                                 Image(systemName: "camera.fill")
                                     .font(.system(size: 24))
                                 Text("Add photo")
-                                    .font(.system(.footnote, design: .rounded, weight: .medium))
+                                    .font(Theme.text(13, relativeTo: .footnote))
                             }
                             .foregroundStyle(Theme.sleepInk)
                         )

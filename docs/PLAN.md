@@ -195,22 +195,30 @@ Each phase is independently shippable.
   seconds) plus a button that just says "Log". Joanne's decision:
   predictions for sleep/poop/pee no longer shown on cards at all
   (engine still computes them; they return when there's an honest use,
-  e.g. the nap nudge). *Redesign (wireframe v3):* one-line greeting
-  (avatar + decorative bell removed — its red dot was fake); status
-  card first, then a round 150pt photo (the only tap-to-change-photo
-  spot), full-width feed/sleep rows, poop + pee compact side by side
-  (hierarchy = importance). Joanne's hand-drawn mascots (SVG image
-  sets, vector data preserved) replace SF Symbols in every badge; new
-  baby-face app icon (`app-icon.svg` next to the mascot sources,
-  rendered → flattened RGB PNG). *Accessibility:* all type on Dynamic
-  Type text styles (rounded design), badges on `@ScaledMetric`, layouts
-  flip vertical at accessibility sizes, app capped at AX2; VoiceOver
-  reads each card as one sentence (status card includes a spelled-out
-  countdown and "Jayla will remind you"; log buttons announce their
-  activity), pickers labeled. *Honest states:* overdue feed shows an
-  accent "any time now" + "Expected around …". Deferred: sleep-duration
-  UI (needs start/stop logging → Phase 6 nap work) and real dark mode
-  (Blush is deliberately light-only).
+  e.g. the nap nudge). *Redesign — "Today dashboard" (picked as 1a from
+  Joanne's Claude Design exploration; reference colors/fonts from
+  `Jayla Home (standalone).html`):* header = 84pt photo (the only
+  tap-to-change-photo spot) + name + age, no menu/tab bar/edit (future
+  updates); a countdown hero card owns the next-feed prediction — big
+  "1h 5m" (Baloo 2), "around 2:30 PM · rough guess", a cycle progress
+  bar (elapsed ÷ `expectedInterval`, full when overdue → smaller
+  "any time now" + "expected around …"), and a "Fed 25 min ago /
+  ~2h cycle" footer; below it a 2×2 quick-log grid — mascot badge,
+  "+" log button (the only tap target; accidental whole-card logs are
+  worse than a smaller target), name, time since. The countdown is the
+  reward that compels logging. *Fonts:* Baloo 2 ExtraBold (display) +
+  Nunito Bold/ExtraBold/Black (body), SIL OFL, bundled in
+  `Jayla/Fonts/` and registered at runtime via CoreText (generated
+  Info.plist stays untouched; previews work). Joanne's hand-drawn
+  mascots (SVG image sets, vector data preserved) replace SF Symbols;
+  baby-face app icon (`app-icon.svg` beside the mascot sources,
+  rendered → flattened RGB PNG). *Accessibility:* custom fonts scale
+  via `relativeTo`, badges on `@ScaledMetric`, grid collapses to one
+  column at accessibility sizes, app capped at AX2; VoiceOver reads
+  the hero as one sentence (spelled-out countdown + "Jayla will remind
+  you") and "+" buttons announce their activity; pickers labeled.
+  Deferred: sleep-duration UI (needs start/stop logging → Phase 6 nap
+  work) and real dark mode (Blush is deliberately light-only).
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like

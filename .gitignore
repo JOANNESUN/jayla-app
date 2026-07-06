@@ -8,3 +8,6 @@ build/
 
 # macOS
 .DS_Store
+
+# Claude Code local state (lives inside the synchronized folder for now)
+Jayla/.claude/

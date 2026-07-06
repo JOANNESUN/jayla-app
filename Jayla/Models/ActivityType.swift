@@ -45,16 +45,7 @@ enum ActivityType: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    // White text washes out on the marigold pee button; every other
-    // ink is dark enough to carry it.
-    var buttonTextColor: Color { self == .pee ? Theme.ink : .white }
-
-    /// What the on-card button *displays*. Every card just says "Log" —
-    /// the card itself already names the activity. VoiceOver gets the
-    /// specific `accessibilityLogLabel` instead.
-    var logButtonLabel: String { "Log" }
-
-    /// Spoken label for the log button, e.g. "Log feed" — the visual
+    /// Spoken label for the "+" log button, e.g. "Log feed" — the visual
     /// context (which card the button sits on) is invisible to VoiceOver.
     var accessibilityLogLabel: String { "Log \(label.lowercased())" }
 

@@ -2,11 +2,11 @@
 //  HomeView.swift
 //  Jayla
 //
-//  The main dashboard: greeting, next-feed reminder card, round baby
-//  photo, then the four log cards (poop + pee share a compact row).
-//  Shown by ContentView once a BabyProfile exists. Tapping the photo
-//  opens the picker to replace the picture — it's the only entry point
-//  now that the header avatar is gone.
+//  The "Today dashboard" (design 1a): photo + greeting header, a
+//  countdown hero card that owns the next-feed prediction, then a 2×2
+//  quick-log grid. Logging sits above the fold — the countdown and its
+//  cycle progress bar are the reward that keeps the logging loop going.
+//  Tapping the header photo opens the picker to replace the picture.
 //
 
 import SwiftUI
@@ -21,22 +21,23 @@ struct HomeView: View {
     @Query(sort: \ActivityEvent.timestamp, order: .reverse) private var events: [ActivityEvent]
     @State private var pickerItem: PhotosPickerItem?
 
-    // The status badge sits next to scaling text, so it scales too.
-    @ScaledMetric(relativeTo: .title3) private var statusBadgeSize = 48.0
-
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
 
-            // everyMinute keeps the countdown and predictions fresh
-            // while the app is open; logging triggers @Query updates.
+            // everyMinute keeps the countdown, progress bar and
+            // predictions fresh while the app is open; logging
+            // triggers @Query updates.
             TimelineView(.everyMinute) { timeline in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         header
-                        statusCard(now: timeline.date)
-                        photoCircle
-                        trackers(now: timeline.date)
+                        heroCard(now: timeline.date)
+                        Text("Quick log")
+                            .font(Theme.display(17, relativeTo: .headline))
+                            .foregroundStyle(Theme.ink)
+                            .padding(.horizontal, 2)
+                        quickLogGrid(now: timeline.date)
                     }
                     .padding(.horizontal, 20)
                     .padding(.bottom, 32)
@@ -51,87 +52,167 @@ struct HomeView: View {
 
     // MARK: - Header
 
-    // One calm line: name and age together, no buttons competing.
     private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text("Hello, \(baby.name)!")
-                .font(.system(.title, design: .rounded, weight: .bold))
-                .foregroundStyle(Theme.ink)
-            Text(baby.ageDescription)
-                .font(.system(.subheadline, design: .rounded))
-                .foregroundStyle(Theme.softInk)
+        HStack(spacing: 14) {
+            photoCircle
+            VStack(alignment: .leading, spacing: 1) {
+                Text(baby.name)
+                    .font(Theme.display(22, relativeTo: .title2))
+                    .foregroundStyle(Theme.ink)
+                Text(baby.ageDescription)
+                    .font(Theme.text(13, relativeTo: .footnote))
+                    .foregroundStyle(Theme.softInk)
+            }
+            .accessibilityElement(children: .combine)
         }
         .padding(.top, 8)
-        .accessibilityElement(children: .combine)
     }
 
-    // MARK: - Status card
-
-    // The ONE place the next-feed prediction lives (the tracker cards
-    // only show what already happened). The little bell marks the
-    // honest contract: this is the prediction that will remind you.
-    // First card on the screen so the photo never pushes it around.
-    private func statusCard(now: Date) -> some View {
-        let nextFeed = prediction(for: .feed, now: now)
-        // Same 60-second threshold countdownText uses for "any time now",
-        // so the color shift and the copy always agree.
-        let overdue = nextFeed.map { $0.nextTime.timeIntervalSince(now) <= 60 } ?? false
-        // At accessibility text sizes the row runs out of width and the
-        // countdown drops below the text instead of truncating it.
-        let layout = typeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
-            : AnyLayout(HStackLayout(spacing: 14))
-        return layout {
-            HStack(spacing: 14) {
-                Circle()
-                    .fill(Theme.feedBadge)
-                    .frame(width: statusBadgeSize, height: statusBadgeSize)
-                    .overlay(
-                        Image(ActivityType.feed.mascot)
-                            .resizable()
-                            .scaledToFit()
-                            .padding(5)
-                    )
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 5) {
-                        Text("Next feed")
-                            .font(.system(.callout, design: .rounded, weight: .semibold))
-                            .foregroundStyle(Theme.ink)
-                        if nextFeed != nil {
-                            Image(systemName: "bell.fill")
-                                .font(.caption2)
-                                .foregroundStyle(Theme.softInk)
-                        }
-                    }
-                    Text(nextFeed.map { statusLine(for: $0, overdue: overdue) }
-                        ?? "Log the first feed to start predictions")
-                        .font(.system(.subheadline, design: .rounded))
-                        .foregroundStyle(Theme.softInk)
+    // The photo is the one place to change the picture. Fixed size on
+    // purpose: it's an image, not text — Dynamic Type shouldn't inflate it.
+    private var photoCircle: some View {
+        PhotosPicker(selection: $pickerItem, matching: .images) {
+            Group {
+                if let data = baby.photoData, let image = Image(photoData: data) {
+                    image.resizable().scaledToFill()
+                } else {
+                    Circle()
+                        .fill(Theme.sleepBadge)
+                        .overlay(
+                            Image(systemName: "photo")
+                                .font(.system(size: 28))
+                                .foregroundStyle(Theme.sleepInk)
+                        )
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            if let nextFeed {
-                Text(countdownText(to: nextFeed.nextTime, from: now))
-                    .font(.system(.title3, design: .rounded, weight: .semibold))
-                    .foregroundStyle(overdue ? Theme.accent : Theme.feedInk)
-            }
+            .frame(width: 84, height: 84)
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(.white, lineWidth: 3))
+            .cardShadow()
         }
-        .padding(16)
-        .background(.white, in: RoundedRectangle(cornerRadius: 26))
-        .shadow(color: .black.opacity(0.08), radius: 15, y: 6)
-        // One spoken sentence — the bell glyph, caveat, and countdown
-        // are meaningless as separate VoiceOver stops.
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(statusAccessibilityLabel(for: nextFeed, now: now))
+        .buttonStyle(.plain)
+        .accessibilityLabel(baby.photoData == nil
+            ? "Add a photo of \(baby.name)" : "\(baby.name)'s photo")
+        .accessibilityHint("Chooses a new photo")
     }
 
-    /// "Around 10:52 PM", with a gentle caveat only while the engine
+    // MARK: - Hero card
+
+    // The ONE place the next-feed prediction lives (the quick-log cards
+    // only show what already happened). The little bell marks the
+    // honest contract: this is the prediction that will remind you.
+    private func heroCard(now: Date) -> some View {
+        let nextFeed = prediction(for: .feed, now: now)
+        // Same 60-second threshold heroCountdown uses for "any time
+        // now", so the full bar and the copy always agree.
+        let overdue = nextFeed.map { $0.nextTime.timeIntervalSince(now) <= 60 } ?? false
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 8) {
+                Text("NEXT FEED")
+                    .font(Theme.text(12, .black, relativeTo: .caption))
+                    .tracking(1.5)
+                    .foregroundStyle(Theme.feedInk)
+                if nextFeed != nil {
+                    Image(systemName: "bell.fill")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.feedInk)
+                }
+            }
+
+            if let nextFeed {
+                Text(heroCountdown(to: nextFeed.nextTime, from: now))
+                    .font(overdue ? Theme.display(30, relativeTo: .title)
+                                  : Theme.display(52, relativeTo: .largeTitle))
+                    .foregroundStyle(Theme.accent)
+                    .padding(.top, 4)
+                Text(statusLine(for: nextFeed, overdue: overdue))
+                    .font(Theme.text(14, relativeTo: .subheadline))
+                    .foregroundStyle(Theme.softInk)
+
+                if let lastFeed = lastEvent(.feed) {
+                    cycleBar(lastFeed: lastFeed, prediction: nextFeed, now: now)
+                        .padding(.top, 16)
+                    HStack {
+                        Text("\(ActivityType.feed.pastTense) \(humanTime(since: lastFeed.timestamp, now: now))")
+                        Spacer()
+                        Text(cycleText(nextFeed.expectedInterval))
+                    }
+                    .font(Theme.text(11, relativeTo: .caption2))
+                    .foregroundStyle(Theme.softInk)
+                    .padding(.top, 6)
+                }
+            } else {
+                Text("Log the first feed to start predictions")
+                    .font(Theme.text(14, relativeTo: .subheadline))
+                    .foregroundStyle(Theme.softInk)
+                    .padding(.top, 8)
+            }
+        }
+        .padding(22)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // Decorative blush circle peeking from the corner; drawn over
+        // the white fill, clipped with it.
+        .background(alignment: .topTrailing) {
+            Circle()
+                .fill(Theme.feedBadge)
+                .frame(width: 120, height: 120)
+                .offset(x: 20, y: -30)
+        }
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 28))
+        .shadow(color: .black.opacity(0.08), radius: 15, y: 6)
+        // One spoken sentence — the bell glyph, caveat, bar and
+        // countdown are meaningless as separate VoiceOver stops.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(heroAccessibilityLabel(for: nextFeed, now: now))
+    }
+
+    /// How far through the feed cycle we are, as a bar. Full = overdue.
+    private func cycleBar(lastFeed: ActivityEvent, prediction: Prediction, now: Date) -> some View {
+        let elapsed = now.timeIntervalSince(lastFeed.timestamp)
+        let fraction = min(max(elapsed / prediction.expectedInterval, 0.02), 1)
+        return GeometryReader { geo in
+            Capsule()
+                .fill(Theme.feedBadge)
+                .overlay(alignment: .leading) {
+                    Capsule()
+                        .fill(Theme.accent)
+                        .frame(width: geo.size.width * fraction)
+                }
+        }
+        .frame(height: 8)
+    }
+
+    /// "~2h cycle" / "~2h 30m cycle" — the learned feed spacing.
+    private func cycleText(_ interval: TimeInterval) -> String {
+        let minutes = Int(interval / 60)
+        let hours = minutes / 60
+        let rest = minutes % 60
+        if hours > 0 {
+            return rest == 0 ? "~\(hours)h cycle" : "~\(hours)h \(rest)m cycle"
+        }
+        return "~\(minutes)m cycle"
+    }
+
+    /// The big number: "1h 5m" / "12m" — or "any time now" once the
+    /// predicted time has passed (predictions are honest, not clamped).
+    private func heroCountdown(to date: Date, from now: Date) -> String {
+        let remaining = date.timeIntervalSince(now)
+        guard remaining > 60 else { return "any time now" }
+        let minutes = Int(remaining / 60)
+        let hours = minutes / 60
+        let rest = minutes % 60
+        if hours > 0 {
+            return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
+        }
+        return "\(minutes)m"
+    }
+
+    /// "around 10:52 PM", with a gentle caveat only while the engine
     /// isn't confident yet. Once the time has passed, it's a past fact:
-    /// "Expected around 10:52 PM".
+    /// "expected around 10:52 PM".
     private func statusLine(for prediction: Prediction, overdue: Bool) -> String {
-        let time = "\(overdue ? "Expected around" : "Around") \(timeText(prediction.nextTime))"
+        let time = "\(overdue ? "expected around" : "around") \(timeText(prediction.nextTime))"
         switch prediction.confidence {
         case .confident: return time
         case .roughly:   return time + " · rough guess"
@@ -139,7 +220,7 @@ struct HomeView: View {
         }
     }
 
-    private func statusAccessibilityLabel(for prediction: Prediction?, now: Date) -> String {
+    private func heroAccessibilityLabel(for prediction: Prediction?, now: Date) -> String {
         guard let prediction else {
             return "Next feed. Log the first feed to start predictions."
         }
@@ -154,62 +235,23 @@ struct HomeView: View {
             + "Jayla will remind you."
     }
 
-    // MARK: - Photo
+    // MARK: - Quick log
 
-    // Fixed size on purpose: it's a picture, not text — Dynamic Type
-    // shouldn't inflate it.
-    private var photoCircle: some View {
-        PhotosPicker(selection: $pickerItem, matching: .images) {
-            Group {
-                if let data = baby.photoData, let image = Image(photoData: data) {
-                    image.resizable().scaledToFill()
-                } else {
-                    Circle()
-                        .fill(Theme.sleepBadge)
-                        .overlay(
-                            VStack(spacing: 6) {
-                                Image(systemName: "figure.child")
-                                    .font(.system(size: 36))
-                                Text("Tap to add a photo")
-                                    .font(.system(.footnote, design: .rounded))
-                            }
-                            .foregroundStyle(Theme.sleepInk)
-                        )
-                }
-            }
-            .frame(width: 150, height: 150)
-            .clipShape(Circle())
-            .overlay(Circle().strokeBorder(.white, lineWidth: 4))
-            .shadow(color: .black.opacity(0.08), radius: 15, y: 6)
-        }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity)
-        .accessibilityLabel(baby.photoData == nil
-            ? "Add a photo of \(baby.name)" : "\(baby.name)'s photo")
-        .accessibilityHint("Chooses a new photo")
-    }
-
-    // MARK: - Trackers
-
-    // Tracker cards state only what already happened — one glance, one
-    // fact. All prediction talk lives in the status card above. Feed
-    // and sleep get full rows; poop and pee matter less, so they share
-    // one — except at accessibility sizes, where half-width cards
-    // can't fit their text and the pair stacks.
-    private func trackers(now: Date) -> some View {
-        let pairLayout = typeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(spacing: 12))
-            : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
-        return VStack(spacing: 12) {
-            TrackerCard(type: .feed, subtitle: subtitle(for: .feed, now: now),
-                        onLog: { log(.feed) })
-            TrackerCard(type: .sleep, subtitle: subtitle(for: .sleep, now: now),
-                        onLog: { log(.sleep) })
-            pairLayout {
-                TrackerCard(type: .poop, subtitle: subtitle(for: .poop, now: now),
-                            isCompact: true, onLog: { log(.poop) })
-                TrackerCard(type: .pee, subtitle: subtitle(for: .pee, now: now),
-                            isCompact: true, onLog: { log(.pee) })
+    // Quick-log cards state only what already happened — one glance,
+    // one fact. All prediction talk lives in the hero card above. At
+    // accessibility text sizes half-width tiles can't fit their text,
+    // so the grid collapses to one column.
+    private func quickLogGrid(now: Date) -> some View {
+        let columns = typeSize.isAccessibilitySize
+            ? [GridItem(.flexible())]
+            : [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
+        return LazyVGrid(columns: columns, spacing: 14) {
+            ForEach(ActivityType.allCases) { type in
+                TrackerCard(
+                    type: type,
+                    subtitle: subtitle(for: type, now: now),
+                    onLog: { log(type) }
+                )
             }
         }
     }
@@ -220,9 +262,11 @@ struct HomeView: View {
         events.first { $0.type == type }
     }
 
+    // The card title already names the activity, so the subtitle is
+    // just the time: "25 min ago".
     private func subtitle(for type: ActivityType, now: Date) -> String {
         guard let last = lastEvent(type) else { return "Nothing logged yet" }
-        return "\(type.pastTense) \(humanTime(since: last.timestamp, now: now))"
+        return humanTime(since: last.timestamp, now: now)
     }
 
     private func prediction(for type: ActivityType, now: Date) -> Prediction? {
@@ -270,21 +314,7 @@ struct HomeView: View {
         return date.formatted(date: .abbreviated, time: .shortened)
     }
 
-    /// "in 1h 5m" / "in 12m" — or "any time now" once the predicted
-    /// time has passed (predictions are honest, not clamped).
-    private func countdownText(to date: Date, from now: Date) -> String {
-        let remaining = date.timeIntervalSince(now)
-        guard remaining > 60 else { return "any time now" }
-        let minutes = Int(remaining / 60)
-        let hours = minutes / 60
-        let rest = minutes % 60
-        if hours > 0 {
-            return rest == 0 ? "in \(hours)h" : "in \(hours)h \(rest)m"
-        }
-        return "in \(minutes)m"
-    }
-
-    /// countdownText spelled out for VoiceOver — "in 1h 5m" reads as
+    /// heroCountdown spelled out for VoiceOver — "1h 5m" reads as
     /// letters, "in 1 hour 5 minutes" reads as time.
     private func spokenCountdown(to date: Date, from now: Date) -> String {
         let remaining = date.timeIntervalSince(now)
