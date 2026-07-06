@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import CoreText
 
 // SwiftUI has no hex-color initializer built in — everyone writes this
 // extension once per project. It parses "F1EFEF" into RGB components.
@@ -54,6 +55,41 @@ enum Theme {
     static let emerald    = Color(hex: "00B88A")   // vivid plant green
     static let cobalt     = Color(hex: "1E5EF5")   // deep blue
     static let brickRed   = Color(hex: "E6322E")   // strong red
+
+    // MARK: - Fonts (Baloo 2 display + Nunito body, both SIL OFL)
+
+    // The TTFs live in Jayla/Fonts/ and ship as plain bundle resources.
+    // Registered at runtime instead of via Info.plist UIAppFonts: the
+    // project generates its Info.plist, and lazy registration also makes
+    // fonts work in Xcode previews. `static let` = runs exactly once.
+    private static let fontsRegistered: Void = {
+        for url in Bundle.main.urls(forResourcesWithExtension: "ttf",
+                                    subdirectory: nil) ?? [] {
+            CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        }
+    }()
+
+    /// Nunito weights used by the design. Raw values are the fonts'
+    /// PostScript names (verified with CoreText after download).
+    enum TextWeight: String {
+        case bold      = "Nunito-Bold"
+        case extraBold = "Nunito-ExtraBold"
+        case black     = "Nunito-Black"
+    }
+
+    /// Chunky display font: the baby's name, the countdown, card titles.
+    static func display(_ size: CGFloat, relativeTo style: Font.TextStyle) -> Font {
+        _ = fontsRegistered
+        return .custom("Baloo2-ExtraBold", size: size, relativeTo: style)
+    }
+
+    /// Body font. Nunito has no true regular in our bundle on purpose —
+    /// the design never goes lighter than bold.
+    static func text(_ size: CGFloat, _ weight: TextWeight = .bold,
+                     relativeTo style: Font.TextStyle) -> Font {
+        _ = fontsRegistered
+        return .custom(weight.rawValue, size: size, relativeTo: style)
+    }
 }
 
 extension View {

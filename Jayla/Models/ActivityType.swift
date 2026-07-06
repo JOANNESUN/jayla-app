@@ -23,15 +23,9 @@ enum ActivityType: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    // SF Symbol name shown in the card badge.
-    var icon: String {
-        switch self {
-        case .feed:  "drop.fill"
-        case .sleep: "moon.fill"
-        case .poop:  "toilet.fill"
-        case .pee:   "humidity.fill"
-        }
-    }
+    // Asset-catalog name of the hand-drawn mascot shown in the card
+    // badge (SVG image sets with vector data preserved).
+    var mascot: String { "mascot-\(rawValue)" }
 
     var badgeColor: Color {
         switch self {
@@ -51,7 +45,19 @@ enum ActivityType: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    var logButtonLabel: String { "Log \(label.lowercased())" }
+    /// Spoken label for the "+" log button, e.g. "Log feed" — the visual
+    /// context (which card the button sits on) is invisible to VoiceOver.
+    var accessibilityLogLabel: String { "Log \(label.lowercased())" }
+
+    /// Past-tense verb for the "last happened" line, e.g. "Fed 5 min ago".
+    var pastTense: String {
+        switch self {
+        case .feed:  "Fed"
+        case .sleep: "Slept"
+        case .poop:  "Pooped"
+        case .pee:   "Peed"
+        }
+    }
 
     // Sleep is the only activity with a duration; the rest are moments.
     var hasDuration: Bool { self == .sleep }
