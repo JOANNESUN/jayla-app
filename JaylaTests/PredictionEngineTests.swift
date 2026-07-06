@@ -119,6 +119,17 @@ test("cold-start ramp: 3 events blend prior toward data") {
     expect(p.confidence == .learning, "n=2 intervals → still learning")
 }
 
+test("fifth log → fully learned, prior has no influence left") {
+    // 5 events = 4 intervals = the full cold-start ramp.
+    let times = series(endingAt: t0, gaps: Array(repeating: 2 * hour, count: 4))
+    var c = feedConfig
+    c.prior = 4 * hour // must be ignored once fully learned
+    let p = PredictionEngine.predict(timestamps: times, now: t0, config: c)!
+    expect(p.priorBlend == 1, "4 intervals → blend 1.0, got \(p.priorBlend)")
+    expectNear(p.expectedInterval, 2 * hour, tolerance: 60,
+               "estimate should be pure data (2h), untouched by the 4h prior")
+}
+
 test("growth tracking: lengthening intervals do not lag (regression guard)") {
     // A week of 2h feeds, then the last day stretches to 4h.
     // The engine must track toward 4h, not average back to ~2h.

@@ -31,8 +31,29 @@ final class ActivityRepository {
                                   source: source)
         context.insert(event)
         try? context.save()
+        #if DEBUG
+        print("📝 [Jayla] Logged \(type.label) at \(time.formatted(date: .omitted, time: .standard)) (source: \(source))")
+        #endif
         return event
     }
+
+    #if DEBUG
+    /// Dump the whole store to the Xcode console — dev visibility only,
+    /// called on launch. Not compiled into Release builds.
+    func debugDumpAll() {
+        let descriptor = FetchDescriptor<ActivityEvent>(
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        let all = (try? context.fetch(descriptor)) ?? []
+        print("══════════ [Jayla] data dump: \(all.count) event\(all.count == 1 ? "" : "s") ══════════")
+        for event in all {
+            let day = event.timestamp.formatted(date: .abbreviated, time: .omitted)
+            let time = event.timestamp.formatted(date: .omitted, time: .standard)
+            print("  \(event.type.label.padding(toLength: 6, withPad: " ", startingAt: 0)) \(day) \(time)  [\(event.source)]")
+        }
+        print("═══════════════════════════════════════════════")
+    }
+    #endif
 
     func recentEvents(of type: ActivityType, limit: Int = 20) -> [ActivityEvent] {
         let raw = type.rawValue

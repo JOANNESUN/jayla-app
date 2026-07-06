@@ -91,6 +91,52 @@ estimate until real data takes over.
 The regression guard is enforced by test: a week of 2h feeds followed by a
 day of 4h feeds must predict > 3.5h.
 
+## Notification philosophy
+
+The baby is already a perfect notification system: crying has a 0% miss
+rate — but it's a **lagging** indicator (the need exists, the baby is
+distressed, everyone's awake). The prediction is a **leading** indicator.
+The app's notification is only valuable in the gap between the two:
+**when acting early beats reacting to crying, and mom's attention is
+elsewhere**. One line: *Jayla tells you what's coming so the crying
+doesn't have to.*
+
+Per activity, that gap is:
+
+- **Feed** — the only activity actionable in advance around the clock.
+  Daytime: catch the missed early hunger cues → feed a calm baby
+  ("prevent the cry"). Night: wake-to-feed / dream-feed schedules are a
+  *deliberate parenting choice*, not a default → opt-in only.
+- **Sleep** — strong daytime case (the "awake window": putting her down
+  before overtired prevents the worst meltdowns) → candidate for a
+  future nap-window nudge, daytime only. Never at night.
+- **Poop / pee** — you can't pre-empt a poop; a predicted diaper is
+  never worth waking anyone. In-app info lines only, **never**
+  notifications.
+
+Consequences:
+
+- **Feed-only notifications** is a philosophy decision, not a Phase 3
+  shortcut. Don't add other notification types without re-reading this.
+- **Night policy is delegated to iOS, with zero settings UI**: because
+  the app lacks the time-sensitive entitlement, Sleep Focus silences
+  reminders by default ("the baby will wake you"); a parent who wants
+  the 3am dream-feed alarm allows Jayla in their Sleep Focus — opt-in
+  alarm clock, configured in iOS Settings, not in our app.
+- From LinkedIn's ATC playbook (researched Jul 2026), we keep the
+  principles that transfer — one pending reminder, quiet-first auth,
+  actionable notifications — and explicitly **reject back-off on
+  ignored reminders**: LinkedIn drops marketing; ours is an alarm the
+  user asked for, and going silent when mom is merely busy is the worst
+  failure mode. If reminders go unanswered, adapt the *content* ("it's
+  been a while since the last logged feed"), never skip.
+- A **response feedback loop** (calibrate predictions from how fast mom
+  reacts to reminders) is measure-first: record response lags invisibly
+  once Phase 4 generates them, evaluate after weeks of real use, and
+  only then build calibration — damped and capped (±20 min) — the
+  signal is noisy and partially double-counts what interval learning
+  already adapts to.
+
 ## Notifications (Phases 3–4, `Notifications/` + `App/`)
 
 - **`AppDelegate`** via `@UIApplicationDelegateAdaptor`; notification
@@ -100,8 +146,9 @@ day of 4h feeds must predict > 3.5h.
   promote to prominent alerts on an explicit user affordance later.
 - Category `FEED_REMINDER` with a `LOG_FEED` action declared **without**
   `.foreground` (so it logs in the background) plus `SNOOZE_15`.
-  `interruptionLevel = .timeSensitive` (needs the time-sensitive
-  entitlement) so hungry-baby alerts pierce Focus.
+  `interruptionLevel` is `.active` for now — `.timeSensitive` (pierces
+  Focus) needs an entitlement that personal/free dev teams cannot
+  provision; revisit on a paid Apple Developer account.
 - **One pending feed notification**, stable id `"pending_feed"` —
   reschedule = cancel + re-add, inherently idempotent.
 - **Background write:** the action handler must NOT touch the UI's
@@ -125,9 +172,12 @@ Each phase is independently shippable.
   weighting + CV confidence + age-band priors), CLI unit tests, HomeView
   wiring: next-feed countdown in the status card, prediction + confidence
   line on every tracker card, refreshed each minute via `TimelineView`.
-- [ ] **Phase 3 — Notifications, foreground path.** Scheduler,
-  categories/actions, provisional auth, AppDelegate, schedule-on-log,
-  `Jayla.entitlements` + time-sensitive.
+- [x] **Phase 3 — Notifications, foreground path.** Scheduler,
+  categories/actions, provisional auth, AppDelegate, schedule-on-log via
+  the `Rescheduler` choke point, badge clear on foreground. Debug hook:
+  `JAYLA_REMINDER_IN_SECONDS` env var schedules a fast test reminder.
+  (Time-sensitive entitlement was dropped: personal dev teams can't
+  provision it — Apple rejects the profile. Re-add on a paid account.)
 - [ ] **Phase 4 — Background action logging.** `@ModelActor
   BackgroundLogger`, background `didReceive` handler, idempotency guard,
   badge, snooze. (Hardest; depends on 1–3.)
@@ -135,6 +185,11 @@ Each phase is independently shippable.
   (recent ~3 intervals vs the prior window; a consistent >~25% shift
   temporarily shortens the half-life and surfaces a hint like "feeds are
   spacing out"), MAD outlier clamp, permission promotion, undo-last-log.
+  Candidates from the notification-philosophy analysis: stale-reminder
+  content ("it's been a while since the last logged feed"), silent
+  response-lag recording (measure-first), and later a daytime
+  nap-window nudge — see *Notification philosophy* above before
+  building any of these.
 
 ## Verification
 

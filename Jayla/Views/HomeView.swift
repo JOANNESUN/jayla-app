@@ -227,6 +227,11 @@ struct HomeView: View {
 
     private func log(_ type: ActivityType) {
         ActivityRepository(context: modelContext).log(type)
+        // Only feeds drive a notification; the choke point re-reads the
+        // store, so it must run after the save above.
+        if type == .feed {
+            Task { await Rescheduler.recomputeAndReschedule() }
+        }
     }
 
     private func applyPickedPhoto(_ item: PhotosPickerItem) async {

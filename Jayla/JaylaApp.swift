@@ -10,6 +10,13 @@ import SwiftData
 
 @main
 struct JaylaApp: App {
+    #if os(iOS)
+    // Registers the notification delegate + categories in
+    // didFinishLaunching — required for cold launches from an action.
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    #endif
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
             ContentView()
@@ -18,7 +25,27 @@ struct JaylaApp: App {
                 // Dark Mode flips default text to white, which disappears
                 // against our hardcoded white cards.
                 .preferredColorScheme(.light)
+                .task {
+                    #if DEBUG
+                    // See everything that's stored: run from Xcode and
+                    // read the console panel at the bottom.
+                    ActivityRepository(context: ModelContainerProvider.shared.mainContext)
+                        .debugDumpAll()
+                    #endif
+                    await NotificationScheduler.requestProvisionalAuthorization()
+                    #if DEBUG
+                    await NotificationScheduler.debugDumpStatus()
+                    #endif
+                }
         }
         .modelContainer(ModelContainerProvider.shared)
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            // Coming to the foreground acknowledges any fired reminder,
+            // and the pending one may be stale (e.g. a feed was logged
+            // from a notification action while we were backgrounded).
+            NotificationScheduler.clearBadge()
+            Task { await Rescheduler.recomputeAndReschedule() }
+        }
     }
 }
