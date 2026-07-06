@@ -137,6 +137,26 @@ walks down as your measured gaps take over from the prior (at ~5 months:
 3. **Long-press** the notification to see the **Log feed** / **Snooze 15
    min** actions (they become functional in Phase 4).
 
+### Testing background logging (Phase 4)
+
+The long-press actions now work — **Log feed** records the feed without
+opening the app, even if it was force-quit:
+
+1. Set `JAYLA_REMINDER_IN_SECONDS` = `20` (Option B above), run, log a feed.
+2. **Force-quit the app** (swipe up, fling Jayla away). This is the hard
+   case — iOS relaunches the app invisibly in the background to handle
+   the action.
+3. When the reminder appears (Notification Center if quiet), **long-press
+   → Log feed**.
+4. Reopen the app from Xcode (⌘R): the launch data dump must show exactly
+   one new `Feed … [notification]` row, the status card reflects it, and a
+   `🔔 pending 'pending_feed'` line shows the next reminder was scheduled.
+5. **Snooze:** repeat, tap **Snooze 15 min** instead — the pending line
+   should show a fire time ~15 minutes out.
+
+A duplicate guard means a double-delivered action within 2 minutes logs
+only one feed (you'll see a "Skipped duplicate" console line instead).
+
 ### Either way — two things to know:
 
 - Authorization is **provisional** ("quiet") by design — no permission

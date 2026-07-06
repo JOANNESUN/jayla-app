@@ -3,11 +3,14 @@
 //  Jayla
 //
 //  THE single choke point of the core loop: every write path — an
-//  in-app log today, the background notification action in Phase 4 —
-//  ends by calling recomputeAndReschedule(). It re-reads the store,
-//  recomputes the feed prediction, and replaces the one pending
-//  reminder. Funnel everything through here and the alert can never
-//  drift out of sync with the data.
+//  in-app log on the main actor, or the background notification action
+//  via BackgroundLogger — ends here. It recomputes the feed prediction
+//  and replaces the one pending reminder. Funnel everything through
+//  here and the alert can never drift out of sync with the data.
+//
+//  Two entry points, one core:
+//  - recomputeAndReschedule()      main-actor, fetches from mainContext
+//  - reschedule(feedTimestamps:…)  plain values, callable from any actor
 //
 
 import Foundation
@@ -15,9 +18,8 @@ import SwiftData
 
 enum Rescheduler {
 
-    /// Recompute the next-feed prediction from the store and replace
-    /// the pending reminder (or cancel it when there's nothing to
-    /// predict — e.g. no feeds logged yet).
+    /// Main-actor convenience: re-read the store and reschedule.
+    /// Called after in-app logs and on app foreground.
     @MainActor
     static func recomputeAndReschedule(now: Date = .now) async {
         let context = ModelContainerProvider.shared.mainContext
@@ -26,6 +28,23 @@ enum Rescheduler {
             return
         }
 
+        let feeds = ActivityRepository(context: context)
+            .recentEvents(of: .feed, limit: 20)
+            .map(\.timestamp)
+
+        await reschedule(feedTimestamps: feeds,
+                         ageBand: baby.ageBand,
+                         babyName: baby.name,
+                         now: now)
+    }
+
+    /// The shared core: predict from plain values and replace the
+    /// pending reminder. Takes no models and no context, so the
+    /// background actor can call it with values it fetched itself.
+    nonisolated static func reschedule(feedTimestamps: [Date],
+                                       ageBand: AgeBand,
+                                       babyName: String,
+                                       now: Date = .now) async {
         #if DEBUG
         // Quick way to test the reminder without waiting hours: set
         // JAYLA_REMINDER_IN_SECONDS in the scheme's Run environment
@@ -34,20 +53,16 @@ enum Rescheduler {
            let seconds = TimeInterval(raw), seconds > 0 {
             await NotificationScheduler.scheduleFeedReminder(
                 at: now.addingTimeInterval(seconds),
-                babyName: baby.name
+                babyName: babyName
             )
             return
         }
         #endif
 
-        let feeds = ActivityRepository(context: context)
-            .recentEvents(of: .feed, limit: 20)
-            .map(\.timestamp)
-
         guard let prediction = PredictionEngine.predict(
-            timestamps: feeds,
+            timestamps: feedTimestamps,
             now: now,
-            config: .config(for: .feed, ageBand: baby.ageBand)
+            config: .config(for: .feed, ageBand: ageBand)
         ) else {
             NotificationScheduler.cancelFeedReminder()
             return
@@ -55,7 +70,7 @@ enum Rescheduler {
 
         await NotificationScheduler.scheduleFeedReminder(
             at: prediction.nextTime,
-            babyName: baby.name
+            babyName: babyName
         )
         #if DEBUG
         print("⏰ [Jayla] Feed reminder scheduled for \(prediction.nextTime.formatted(date: .omitted, time: .standard)) (\(prediction.confidence.label), \(prediction.sampleCount) intervals, blend \(String(format: "%.2f", prediction.priorBlend)))")
