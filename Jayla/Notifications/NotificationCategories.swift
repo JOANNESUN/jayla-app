@@ -15,7 +15,7 @@
 
 import UserNotifications
 
-enum NotificationCategories {
+nonisolated enum NotificationCategories {
     static let feedReminder = "FEED_REMINDER"
     static let logFeedAction = "LOG_FEED"
     static let snoozeAction = "SNOOZE_15"

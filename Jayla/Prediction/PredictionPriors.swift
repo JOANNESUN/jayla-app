@@ -13,7 +13,7 @@
 
 import Foundation
 
-extension PredictionEngine.Config {
+nonisolated extension PredictionEngine.Config {
 
     private static let hour: TimeInterval = 3_600
     private static let day: TimeInterval = 86_400

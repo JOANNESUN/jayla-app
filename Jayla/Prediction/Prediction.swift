@@ -12,7 +12,7 @@ import Foundation
 /// How much to trust a prediction. Derived from the weighted coefficient
 /// of variation of recent intervals — dimensionless, so it stays
 /// comparable as the baby's rhythms stretch out with age.
-enum PredictionConfidence: String, Sendable {
+nonisolated enum PredictionConfidence: String, Sendable {
     case learning
     case roughly
     case confident
@@ -27,7 +27,7 @@ enum PredictionConfidence: String, Sendable {
     }
 }
 
-struct Prediction: Equatable, Sendable {
+nonisolated struct Prediction: Equatable, Sendable {
     /// When the next occurrence is expected. Never in the past — the
     /// engine clamps to `now + grace` so a late log can't produce an
     /// already-expired alert.

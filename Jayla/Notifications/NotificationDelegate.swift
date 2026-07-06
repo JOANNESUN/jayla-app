@@ -23,9 +23,10 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
         return [.banner, .sound]
     }
 
-    /// Action taps land here (LOG_FEED / SNOOZE_15 / default open).
-    /// Phase 4 routes LOG_FEED through a @ModelActor BackgroundLogger so
-    /// it can write with the app killed; until then actions just dismiss.
+    /// Action taps land here (LOG_FEED / SNOOZE_15 / default open) —
+    /// possibly with the app backgrounded or cold-launched, so all data
+    /// work goes through the BackgroundLogger actor, never the UI's
+    /// main-actor context.
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse
@@ -33,6 +34,28 @@ final class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
         #if DEBUG
         print("🔔 [Jayla] user responded to reminder: \(response.actionIdentifier)")
         #endif
-        // Phase 4: background logging + snooze land here.
+        switch response.actionIdentifier {
+        case NotificationCategories.logFeedAction:
+            // Logs the feed AND reschedules the next reminder.
+            let logger = BackgroundLogger(modelContainer: ModelContainerProvider.shared)
+            await logger.logFeedFromNotification()
+            NotificationScheduler.clearBadge()
+
+        case NotificationCategories.snoozeAction:
+            // Re-ask in 15 minutes. The baby's name rides in userInfo so
+            // snoozing needs no database access at all.
+            let name = response.notification.request.content
+                .userInfo["babyName"] as? String ?? "Baby"
+            await NotificationScheduler.scheduleFeedReminder(
+                at: Date.now.addingTimeInterval(15 * 60),
+                babyName: name
+            )
+            NotificationScheduler.clearBadge()
+
+        default:
+            // Body tap just opens the app; the foreground scenePhase
+            // handler already clears the badge and reschedules.
+            break
+        }
     }
 }

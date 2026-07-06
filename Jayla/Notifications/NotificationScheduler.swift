@@ -14,7 +14,10 @@
 import Foundation
 import UserNotifications
 
-enum NotificationScheduler {
+// nonisolated: UNUserNotificationCenter is thread-safe, and both the
+// main actor (in-app logs) and BackgroundLogger (notification actions)
+// call in here.
+nonisolated enum NotificationScheduler {
     static let pendingFeedID = "pending_feed"
 
     /// Ask once, quietly. Provisional auth shows no permission dialog;
@@ -48,6 +51,9 @@ enum NotificationScheduler {
         content.badge = 1 // cleared when the app comes to the foreground
         content.categoryIdentifier = NotificationCategories.feedReminder
         content.threadIdentifier = "feed"
+        // Lets the snooze action rebuild the reminder without touching
+        // the database.
+        content.userInfo = ["babyName": babyName]
         // .timeSensitive (pierces Focus/DND) needs an entitlement that
         // personal (free) dev teams cannot provision — Apple rejects the
         // profile outright. Revisit if the account ever moves to a paid

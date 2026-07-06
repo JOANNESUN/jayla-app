@@ -178,9 +178,14 @@ Each phase is independently shippable.
   `JAYLA_REMINDER_IN_SECONDS` env var schedules a fast test reminder.
   (Time-sensitive entitlement was dropped: personal dev teams can't
   provision it — Apple rejects the profile. Re-add on a paid account.)
-- [ ] **Phase 4 — Background action logging.** `@ModelActor
-  BackgroundLogger`, background `didReceive` handler, idempotency guard,
-  badge, snooze. (Hardest; depends on 1–3.)
+- [x] **Phase 4 — Background action logging.** `@ModelActor
+  BackgroundLogger` owns the background write path (idempotency guard:
+  skip if a notification-sourced feed exists within 2 min); `didReceive`
+  routes LOG_FEED → log + reschedule and SNOOZE_15 → re-ask in 15 min
+  (baby name rides in `userInfo`, no DB access); Rescheduler refactored
+  into a plain-value core shared by both entry points; scheduler /
+  categories / prediction types marked `nonisolated` (the project's
+  default-MainActor isolation would otherwise fight the background path).
 - [ ] **Phase 5 — Pattern-shift flagging & polish.** Change-point check
   (recent ~3 intervals vs the prior window; a consistent >~25% shift
   temporarily shortens the half-life and surfaces a hint like "feeds are

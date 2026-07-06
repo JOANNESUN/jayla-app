@@ -20,7 +20,7 @@
 
 import Foundation
 
-enum PredictionEngine {
+nonisolated enum PredictionEngine {
 
     /// Per-activity tuning. Defaults suit feeds; `PredictionPriors`
     /// builds variants for each (activity, age band) pair.
