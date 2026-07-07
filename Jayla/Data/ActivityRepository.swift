@@ -97,6 +97,24 @@ final class ActivityRepository {
         try? context.save()
     }
 
+    /// Undo a mis-tapped "Wake up": clear the duration so the nap is
+    /// open again and the timer picks back up from the original start.
+    func reopenNap(_ nap: ActivityEvent) {
+        nap.durationSeconds = nil
+        try? context.save()
+    }
+
+    /// The most recently completed nap (duration filled in).
+    func lastCompletedNap() -> ActivityEvent? {
+        let raw = ActivityType.sleep.rawValue
+        var descriptor = FetchDescriptor<ActivityEvent>(
+            predicate: #Predicate { $0.typeRaw == raw && $0.durationSeconds != nil },
+            sortBy: [SortDescriptor(\.timestamp, order: .reverse)]
+        )
+        descriptor.fetchLimit = 1
+        return (try? context.fetch(descriptor))?.first
+    }
+
     func recentEvents(of type: ActivityType, limit: Int = 20) -> [ActivityEvent] {
         let raw = type.rawValue
         var descriptor = FetchDescriptor<ActivityEvent>(
