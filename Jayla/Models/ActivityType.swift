@@ -27,6 +27,10 @@ enum ActivityType: String, Codable, CaseIterable, Identifiable {
     // badge (SVG image sets with vector data preserved).
     var mascot: String { "mascot-\(rawValue)" }
 
+    // Asset-catalog name of the kawaii icon on the poop/pee count tiles.
+    // Feed and sleep hero cards keep their mascots.
+    var icon: String { rawValue }
+
     var badgeColor: Color {
         switch self {
         case .feed:  Theme.feedBadge
@@ -42,6 +46,25 @@ enum ActivityType: String, Codable, CaseIterable, Identifiable {
         case .sleep: Theme.sleepInk
         case .poop:  Theme.poopInk
         case .pee:   Theme.peeInk
+        }
+    }
+
+    /// Edge stroke of the poop/pee count tiles — a shade deeper than the
+    /// tile surface. Clear for feed/sleep, which draw no border.
+    var borderColor: Color {
+        switch self {
+        case .poop: Theme.poopBorder
+        case .pee:  Theme.peeBorder
+        case .feed, .sleep: .clear
+        }
+    }
+
+    /// Color of the big daily count on the poop/pee tiles. Pee gets its
+    /// own dark shade — marigold ink washes out on the butter surface.
+    var countColor: Color {
+        switch self {
+        case .pee: Theme.peeCount
+        default:   inkColor
         }
     }
 
