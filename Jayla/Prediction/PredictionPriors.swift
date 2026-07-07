@@ -47,6 +47,23 @@ nonisolated extension PredictionEngine.Config {
         return config
     }
 
+    /// Tuning for predicting how long the current nap will run, from the
+    /// durations of recent completed naps (fed to
+    /// `PredictionEngine.estimateInterval`). Same window as sleep-start
+    /// gaps — nap length consolidates on the same slow timescale.
+    static func napDurationConfig(ageBand: AgeBand) -> PredictionEngine.Config {
+        var config = PredictionEngine.Config()
+        config.maxEvents = 10
+        config.maxWindow = 5 * day
+        config.halfLife = 2 * day
+        config.prior = switch ageBand {
+        case .newborn: 1.0 * hour
+        case .infant:  1.25 * hour
+        case .older:   1.5 * hour
+        }
+        return config
+    }
+
     /// Typical spacing before we have data. Coarse on purpose — these
     /// seed the estimate, they don't need to be precise.
     private static func prior(for type: ActivityType, ageBand: AgeBand) -> TimeInterval {

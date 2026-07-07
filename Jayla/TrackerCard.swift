@@ -14,9 +14,19 @@ import SwiftUI
 struct TrackerCard: View {
     let type: ActivityType
     let subtitle: String    // what already happened, e.g. "25 min ago"
-    // Called when the mom taps the "+". Defaults to a no-op so previews
-    // and static uses don't have to supply one.
+    // Optional second caption line — the sleep card puts its prediction
+    // here ("likely wakes around 3:20").
+    var detail: String? = nil
+    // The action button's SF symbol + spoken label. The sleep card swaps
+    // "+" for a wake-up sun while a nap is running.
+    var logIcon: String = "plus"
+    var logLabel: String? = nil
+    // Called when the mom taps the action button. Defaults to a no-op so
+    // previews and static uses don't have to supply one.
     var onLog: () -> Void = {}
+    // Small tappable footer row, e.g. "since 2:40 · adjust" on a
+    // running nap.
+    var adjust: (label: String, action: () -> Void)? = nil
 
     // Badges hold glyphs next to scaling text, so they scale too.
     @ScaledMetric(relativeTo: .headline) private var badgeSize = 42.0
@@ -49,8 +59,27 @@ struct TrackerCard: View {
                     .font(Theme.text(12, relativeTo: .caption))
                     .foregroundStyle(Theme.softInk)
                     .lineLimit(2)
+                if let detail {
+                    Text(detail)
+                        .font(Theme.text(12, relativeTo: .caption))
+                        .foregroundStyle(Theme.softInk)
+                        .lineLimit(2)
+                }
             }
             .accessibilityElement(children: .combine)
+
+            if let adjust {
+                Button(action: adjust.action) {
+                    Text(adjust.label)
+                        .font(Theme.text(12, relativeTo: .caption))
+                        .foregroundStyle(type.inkColor)
+                        .underline()
+                        // Small text, big target.
+                        .frame(minHeight: 32, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -58,13 +87,13 @@ struct TrackerCard: View {
         .cardShadow()
     }
 
-    // The "+" is the ONLY tap target — a whole-card button logs by
-    // accident when a tired parent scrolls one-handed.
+    // The action button is the ONLY log tap target — a whole-card button
+    // logs by accident when a tired parent scrolls one-handed.
     private var logButton: some View {
         Button {
             onLog()
         } label: {
-            Image(systemName: "plus")
+            Image(systemName: logIcon)
                 .font(.system(.footnote, weight: .heavy))
                 .foregroundStyle(.white)
                 .frame(width: plusSize, height: plusSize)
@@ -74,9 +103,9 @@ struct TrackerCard: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        // The button just shows "+"; VoiceOver can't see which card it
-        // sits on, so it gets the activity-specific label.
-        .accessibilityLabel(type.accessibilityLogLabel)
+        // The button just shows a glyph; VoiceOver can't see which card
+        // it sits on, so it gets an activity-specific label.
+        .accessibilityLabel(logLabel ?? type.accessibilityLogLabel)
     }
 }
 
@@ -84,12 +113,23 @@ struct TrackerCard: View {
     let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
     return LazyVGrid(columns: columns, spacing: 14) {
         TrackerCard(type: .feed, subtitle: "25 min ago")
-        TrackerCard(type: .sleep, subtitle: "2h ago")
+        TrackerCard(type: .sleep, subtitle: "2h ago", detail: "next nap around 3:20")
         TrackerCard(type: .poop, subtitle: "3h ago")
         TrackerCard(type: .pee, subtitle: "Nothing logged yet")
     }
     .padding()
     .background(Theme.background)
+}
+
+#Preview("Nap in progress") {
+    TrackerCard(type: .sleep,
+                subtitle: "Asleep 42m",
+                detail: "likely wakes around 3:20",
+                logIcon: "sun.max.fill",
+                logLabel: "Wake up",
+                adjust: ("since 2:40 · adjust", {}))
+        .padding()
+        .background(Theme.background)
 }
 
 #Preview("Accessibility size") {
