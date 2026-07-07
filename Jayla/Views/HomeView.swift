@@ -474,8 +474,13 @@ private struct NapAdjustSheet: View {
                        selection: $start,
                        in: ...Date.now,
                        displayedComponents: .hourAndMinute)
-                .datePickerStyle(.wheel)
                 .labelsHidden()
+                // .wheel doesn't exist on macOS, which the fast
+                // type-check build (`-destination 'platform=macOS'`)
+                // compiles for.
+                #if os(iOS)
+                .datePickerStyle(.wheel)
+                #endif
 
             Button {
                 onSave(min(start, .now))
