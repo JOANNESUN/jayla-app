@@ -20,6 +20,8 @@ struct HomeView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Query(sort: \ActivityEvent.timestamp, order: .reverse) private var events: [ActivityEvent]
     @State private var pickerItem: PhotosPickerItem?
+    // The running nap being backdated via the "since 2:40 · adjust" row.
+    @State private var adjustingNap: ActivityEvent?
 
     var body: some View {
         ZStack {
@@ -47,6 +49,14 @@ struct HomeView: View {
         .onChange(of: pickerItem) { _, item in
             guard let item else { return }
             Task { await applyPickedPhoto(item) }
+        }
+        .sheet(item: $adjustingNap) { nap in
+            NapAdjustSheet(napStart: nap.timestamp) { newStart in
+                ActivityRepository(context: modelContext)
+                    .adjustNapStart(nap, to: newStart)
+                // The runaway check is anchored to the start time.
+                Task { await Rescheduler.recomputeAndReschedule() }
+            }
         }
     }
 
@@ -212,11 +222,17 @@ struct HomeView: View {
     /// isn't confident yet. Once the time has passed, it's a past fact:
     /// "expected around 10:52 PM".
     private func statusLine(for prediction: Prediction, overdue: Bool) -> String {
-        let time = "\(overdue ? "expected around" : "around") \(timeText(prediction.nextTime))"
-        switch prediction.confidence {
-        case .confident: return time
-        case .roughly:   return time + " · rough guess"
-        case .learning:  return time + " · still learning"
+        "\(overdue ? "expected around" : "around") \(timeText(prediction.nextTime))"
+            + caveat(prediction.confidence)
+    }
+
+    /// The gentle honesty suffix, shown only while the engine isn't
+    /// confident yet.
+    private func caveat(_ confidence: PredictionConfidence) -> String {
+        switch confidence {
+        case .confident: ""
+        case .roughly:   " · rough guess"
+        case .learning:  " · still learning"
         }
     }
 
@@ -247,12 +263,44 @@ struct HomeView: View {
             : [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
         return LazyVGrid(columns: columns, spacing: 14) {
             ForEach(ActivityType.allCases) { type in
-                TrackerCard(
-                    type: type,
-                    subtitle: subtitle(for: type, now: now),
-                    onLog: { log(type) }
-                )
+                if type == .sleep {
+                    sleepCard(now: now)
+                } else {
+                    TrackerCard(
+                        type: type,
+                        subtitle: subtitle(for: type, now: now),
+                        onLog: { log(type) }
+                    )
+                }
             }
+        }
+    }
+
+    // Sleep is a state, so its card is a toggle: awake shows "+" (start
+    // nap) and the next-nap estimate; asleep shows the elapsed time, the
+    // wake estimate, a backdate row, and a sun button to end the nap.
+    // Sleep predictions live here, not in the hero — one place per fact.
+    @ViewBuilder
+    private func sleepCard(now: Date) -> some View {
+        if let nap = openNap(now: now) {
+            TrackerCard(
+                type: .sleep,
+                subtitle: "Asleep \(elapsedText(since: nap.timestamp, now: now))",
+                detail: wakeDetail(for: nap, now: now),
+                logIcon: "sun.max.fill",
+                logLabel: "Wake up",
+                onLog: { wakeUp(nap) },
+                adjust: ("since \(timeText(nap.timestamp)) · adjust",
+                         { adjustingNap = nap })
+            )
+        } else {
+            TrackerCard(
+                type: .sleep,
+                subtitle: subtitle(for: .sleep, now: now),
+                detail: nextNapDetail(now: now),
+                logLabel: "Start nap",
+                onLog: { log(.sleep) }
+            )
         }
     }
 
@@ -277,13 +325,68 @@ struct HomeView: View {
         )
     }
 
-    private func log(_ type: ActivityType) {
-        ActivityRepository(context: modelContext).log(type)
-        // Only feeds drive a notification; the choke point re-reads the
-        // store, so it must run after the save above.
-        if type == .feed {
-            Task { await Rescheduler.recomputeAndReschedule() }
+    /// The nap in progress, if any — same rule as the repository's
+    /// openNap, read from the live @Query so the card flips instantly.
+    /// The 16h guard keeps legacy instant-tap sleep rows (nil duration)
+    /// from reading as "still asleep".
+    private func openNap(now: Date) -> ActivityEvent? {
+        let cutoff = now.addingTimeInterval(-16 * 3_600)
+        return events.first {
+            $0.type == .sleep && $0.durationSeconds == nil && $0.timestamp > cutoff
         }
+    }
+
+    /// "likely wakes around 3:20" — display-only, deliberately never a
+    /// notification (nap time is quiet time).
+    private func wakeDetail(for nap: ActivityEvent, now: Date) -> String? {
+        let durations = events.compactMap { event -> (value: TimeInterval, date: Date)? in
+            guard event.type == .sleep,
+                  let duration = event.durationSeconds, duration > 0 else { return nil }
+            return (duration, event.timestamp.addingTimeInterval(duration))
+        }
+        guard let estimate = PredictionEngine.estimateInterval(
+            samples: durations,
+            now: now,
+            config: .napDurationConfig(ageBand: baby.ageBand)
+        ) else { return nil }
+
+        let wake = nap.timestamp.addingTimeInterval(estimate.expected)
+        guard wake > now else { return "could wake any time now" }
+        return "likely wakes around \(timeText(wake))" + caveat(estimate.confidence)
+    }
+
+    private func nextNapDetail(now: Date) -> String? {
+        guard let next = prediction(for: .sleep, now: now) else { return nil }
+        guard next.nextTime > now else { return "next nap could start any time" }
+        return "next nap around \(timeText(next.nextTime))" + caveat(next.confidence)
+    }
+
+    private func log(_ type: ActivityType) {
+        let repo = ActivityRepository(context: modelContext)
+        switch type {
+        case .sleep:
+            // The card's toggle: the button only reads "Start nap" when
+            // no nap is open, but re-check so a stale tap can't stack
+            // two open naps.
+            if let nap = repo.openNap() {
+                repo.endNap(nap)
+            } else {
+                repo.startNap()
+            }
+            Task { await Rescheduler.recomputeAndReschedule() }
+        case .feed:
+            repo.log(type)
+            // The choke point re-reads the store, so it must run after
+            // the save above.
+            Task { await Rescheduler.recomputeAndReschedule() }
+        case .poop, .pee:
+            repo.log(type)
+        }
+    }
+
+    private func wakeUp(_ nap: ActivityEvent) {
+        ActivityRepository(context: modelContext).endNap(nap)
+        Task { await Rescheduler.recomputeAndReschedule() }
     }
 
     private func applyPickedPhoto(_ item: PhotosPickerItem) async {
@@ -314,6 +417,18 @@ struct HomeView: View {
         return date.formatted(date: .abbreviated, time: .shortened)
     }
 
+    /// Running-nap elapsed time: "42m" / "1h 5m". Same shape as the hero
+    /// countdown, but counting up.
+    private func elapsedText(since date: Date, now: Date) -> String {
+        let minutes = max(0, Int(now.timeIntervalSince(date) / 60))
+        let hours = minutes / 60
+        let rest = minutes % 60
+        if hours > 0 {
+            return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
+        }
+        return "\(minutes)m"
+    }
+
     /// heroCountdown spelled out for VoiceOver — "1h 5m" reads as
     /// letters, "in 1 hour 5 minutes" reads as time.
     private func spokenCountdown(to date: Date, from now: Date) -> String {
@@ -327,5 +442,60 @@ struct HomeView: View {
             return rest == 0 ? "In \(h)" : "In \(h) \(rest) minutes"
         }
         return "In \(minutes) minute\(minutes == 1 ? "" : "s")"
+    }
+}
+
+// MARK: - Nap adjust sheet
+
+/// "She actually fell asleep at…" — a compact wheel to backdate a
+/// running nap's start. Clamped to the past; Save hands the new start
+/// back to HomeView, which persists and reschedules.
+private struct NapAdjustSheet: View {
+    let napStart: Date
+    let onSave: (Date) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var start: Date
+
+    init(napStart: Date, onSave: @escaping (Date) -> Void) {
+        self.napStart = napStart
+        self.onSave = onSave
+        _start = State(initialValue: napStart)
+    }
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Text("When did she fall asleep?")
+                .font(Theme.display(20, relativeTo: .title3))
+                .foregroundStyle(Theme.ink)
+                .padding(.top, 24)
+
+            DatePicker("Nap start",
+                       selection: $start,
+                       in: ...Date.now,
+                       displayedComponents: .hourAndMinute)
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+
+            Button {
+                onSave(min(start, .now))
+                dismiss()
+            } label: {
+                Text("Save")
+                    .font(Theme.display(17, relativeTo: .headline))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(Theme.accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 24)
+
+            Button("Cancel") { dismiss() }
+                .font(Theme.text(15, relativeTo: .subheadline))
+                .foregroundStyle(Theme.softInk)
+                .padding(.bottom, 16)
+        }
+        .presentationDetents([.height(360)])
+        .presentationBackground(Theme.background)
     }
 }

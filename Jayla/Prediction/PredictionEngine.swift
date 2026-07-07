@@ -58,14 +58,45 @@ nonisolated enum PredictionEngine {
         let cutoff = now.addingTimeInterval(-config.maxWindow)
         let windowed = Array(sorted.filter { $0 >= cutoff }.suffix(config.maxEvents))
 
-        // Intervals between consecutive events, weighted by how recently
-        // each interval ended.
-        var intervals: [(value: TimeInterval, weight: Double)] = []
+        // Intervals between consecutive events, each tagged with when it
+        // ended so the shared core can recency-weight it.
+        var samples: [(value: TimeInterval, date: Date)] = []
         for (earlier, later) in zip(windowed, windowed.dropFirst()) {
-            let gap = later.timeIntervalSince(earlier)
-            guard gap > 0 else { continue }
-            let age = max(0, now.timeIntervalSince(later))
-            intervals.append((gap, exp(-age / config.halfLife * Self.ln2)))
+            samples.append((later.timeIntervalSince(earlier), later))
+        }
+
+        guard let estimate = estimateInterval(samples: samples,
+                                              now: now,
+                                              config: config) else { return nil }
+
+        // The honest estimate — deliberately NOT clamped to the future.
+        // A stable displayed time ("around 2:30") must not slide forward
+        // on every re-render; when it's overdue the UI says "any time
+        // now" and the notification scheduler clamps before scheduling.
+        return Prediction(nextTime: last.addingTimeInterval(estimate.expected),
+                          expectedInterval: estimate.expected,
+                          confidence: estimate.confidence,
+                          sampleCount: estimate.sampleCount,
+                          priorBlend: estimate.priorBlend)
+    }
+
+    /// The weighted core, callable with interval samples that don't come
+    /// from gaps between timestamps — e.g. nap durations, tagged with the
+    /// moment each nap ended. Applies the same double sliding window and
+    /// recency weighting as `predict`.
+    static func estimateInterval(samples: [(value: TimeInterval, date: Date)],
+                                 now: Date,
+                                 config: Config) -> IntervalEstimate? {
+        let cutoff = now.addingTimeInterval(-config.maxWindow)
+        let windowed = samples
+            .filter { $0.date >= cutoff && $0.value > 0 }
+            .sorted { $0.date < $1.date }
+            .suffix(config.maxEvents)
+
+        var intervals: [(value: TimeInterval, weight: Double)] = []
+        for sample in windowed {
+            let age = max(0, now.timeIntervalSince(sample.date))
+            intervals.append((sample.value, exp(-age / config.halfLife * Self.ln2)))
         }
 
         let n = intervals.count
@@ -107,14 +138,9 @@ nonisolated enum PredictionEngine {
             confidence = .learning
         }
 
-        // The honest estimate — deliberately NOT clamped to the future.
-        // A stable displayed time ("around 2:30") must not slide forward
-        // on every re-render; when it's overdue the UI says "any time
-        // now" and the notification scheduler clamps before scheduling.
-        return Prediction(nextTime: last.addingTimeInterval(expected),
-                          expectedInterval: expected,
-                          confidence: confidence,
-                          sampleCount: n,
-                          priorBlend: blend)
+        return IntervalEstimate(expected: expected,
+                                confidence: confidence,
+                                sampleCount: n,
+                                priorBlend: blend)
     }
 }

@@ -27,6 +27,19 @@ nonisolated enum PredictionConfidence: String, Sendable {
     }
 }
 
+/// A weighted estimate of an interval-shaped quantity that isn't a gap
+/// between events — today: how long the current nap will run, from the
+/// durations of recent completed naps. Same confidence semantics as
+/// `Prediction`.
+nonisolated struct IntervalEstimate: Equatable, Sendable {
+    let expected: TimeInterval
+    let confidence: PredictionConfidence
+    /// Number of samples that informed the estimate (0 = pure prior).
+    let sampleCount: Int
+    /// 0 = entirely age-band prior, 1 = entirely learned from data.
+    let priorBlend: Double
+}
+
 nonisolated struct Prediction: Equatable, Sendable {
     /// When the next occurrence is expected. May be in the past (e.g.
     /// after a late log) — display layers show "any time now", and the

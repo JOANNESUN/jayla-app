@@ -19,6 +19,8 @@ import UserNotifications
 // call in here.
 nonisolated enum NotificationScheduler {
     static let pendingFeedID = "pending_feed"
+    static let pendingNapID = "pending_nap"
+    static let napCheckID = "nap_check"
 
     /// Ask once, quietly. Provisional auth shows no permission dialog;
     /// if the user has explicitly denied, this never re-asks.
@@ -67,6 +69,77 @@ nonisolated enum NotificationScheduler {
                                                     repeats: false)
         center.removePendingNotificationRequests(withIdentifiers: [pendingFeedID])
         try? await center.add(UNNotificationRequest(identifier: pendingFeedID,
+                                                    content: content,
+                                                    trigger: trigger))
+    }
+
+    /// Lead-time nudge while she's awake: fires ~15 min before the
+    /// predicted nap start so there's time for a wind-down (the
+    /// SweetSpot/Napper pattern — notify before sleep, never during).
+    static func scheduleNapReminder(at date: Date,
+                                    babyName: String,
+                                    predictedStart: Date) async {
+        await schedule(
+            id: pendingNapID,
+            title: "\(babyName) may be getting sleepy soon 😴",
+            body: "Next nap predicted around "
+                + predictedStart.formatted(date: .omitted, time: .shortened)
+                + " — a guideline, not a deadline.",
+            at: date
+        )
+    }
+
+    /// Runaway-nap guard: fires only when a nap runs way past its
+    /// predicted duration and "Wake up" was never tapped. A plain tap
+    /// opens the app to fix the log — no actions, deliberately.
+    static func scheduleNapCheck(at date: Date, babyName: String) async {
+        await schedule(
+            id: napCheckID,
+            title: "Is \(babyName) still asleep?",
+            body: "This nap is running long — tap to update her sleep log.",
+            at: date
+        )
+    }
+
+    static func cancelNapReminder() {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [pendingNapID])
+    }
+
+    static func cancelNapCheck() {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [napCheckID])
+    }
+
+    /// Shared plumbing for the sleep notifications: same auth gate,
+    /// cancel + re-add idempotency and calendar trigger as the feed
+    /// reminder, minus its category/actions.
+    private static func schedule(id: String,
+                                 title: String,
+                                 body: String,
+                                 at date: Date) async {
+        let center = UNUserNotificationCenter.current()
+        let settings = await center.notificationSettings()
+        switch settings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral: break
+        default: return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.badge = 1 // cleared when the app comes to the foreground
+        content.threadIdentifier = "sleep"
+        content.interruptionLevel = .active
+
+        let components = Calendar.current.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second], from: date
+        )
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components,
+                                                    repeats: false)
+        center.removePendingNotificationRequests(withIdentifiers: [id])
+        try? await center.add(UNNotificationRequest(identifier: id,
                                                     content: content,
                                                     trigger: trigger))
     }
