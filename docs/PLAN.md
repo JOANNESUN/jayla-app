@@ -243,6 +243,18 @@ Each phase is independently shippable.
   estimate, and a "since 2:40 · adjust" wheel to backdate a running
   start (clamped to the past). Sleep predictions live on the sleep card,
   not the hero — one place per fact.
+  *Home redesign follow-up (Joanne's mockup, branch `ui-ux-design`):*
+  feed and sleep are the two "live" activities, so each hero owns its
+  facts, prediction AND action — the feed hero gained a full-width
+  "+ Log feed" pill, and sleep became a second hero-style card
+  (`Views/SleepCard.swift`): awake = "NEXT NAP" + bell + Start nap
+  pill; asleep = blue-tinted card with a progress ring (elapsed ÷
+  predicted duration, "~35m left"), wake estimate, adjust row, Wake up
+  pill, and deliberately NO bell (display-only, no mid-nap pings). The
+  quick-log grid is instants only (poop/pee); TrackerCard reverted to
+  the simple type/subtitle/onLog tile. At accessibility sizes the ring
+  stacks above the text (AnyLayout swap, same idea as the grid
+  collapse).
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like

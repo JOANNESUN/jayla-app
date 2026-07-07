@@ -39,6 +39,7 @@ struct HomeView: View {
                             .font(Theme.display(17, relativeTo: .headline))
                             .foregroundStyle(Theme.ink)
                             .padding(.horizontal, 2)
+                        sleepSection(now: timeline.date)
                         quickLogGrid(now: timeline.date)
                     }
                     .padding(.horizontal, 20)
@@ -108,55 +109,79 @@ struct HomeView: View {
 
     // MARK: - Hero card
 
-    // The ONE place the next-feed prediction lives (the quick-log cards
-    // only show what already happened). The little bell marks the
-    // honest contract: this is the prediction that will remind you.
+    // The ONE place feed lives: prediction, past fact AND the log
+    // action (the quick-log grid is instants only — poop/pee). The
+    // little bell marks the honest contract: this is the prediction
+    // that will remind you.
     private func heroCard(now: Date) -> some View {
         let nextFeed = prediction(for: .feed, now: now)
         // Same 60-second threshold heroCountdown uses for "any time
         // now", so the full bar and the copy always agree.
         let overdue = nextFeed.map { $0.nextTime.timeIntervalSince(now) <= 60 } ?? false
         return VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 8) {
-                Text("NEXT FEED")
-                    .font(Theme.text(12, .black, relativeTo: .caption))
-                    .tracking(1.5)
-                    .foregroundStyle(Theme.feedInk)
-                if nextFeed != nil {
-                    Image(systemName: "bell.fill")
-                        .font(.caption2)
+            // The informational block reads as ONE VoiceOver sentence —
+            // the bell glyph, caveat, bar and countdown are meaningless
+            // as separate stops. The log button below stays its own stop.
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Text("NEXT FEED")
+                        .font(Theme.text(12, .black, relativeTo: .caption))
+                        .tracking(1.5)
                         .foregroundStyle(Theme.feedInk)
-                }
-            }
-
-            if let nextFeed {
-                Text(heroCountdown(to: nextFeed.nextTime, from: now))
-                    .font(overdue ? Theme.display(30, relativeTo: .title)
-                                  : Theme.display(52, relativeTo: .largeTitle))
-                    .foregroundStyle(Theme.accent)
-                    .padding(.top, 4)
-                Text(statusLine(for: nextFeed, overdue: overdue))
-                    .font(Theme.text(14, relativeTo: .subheadline))
-                    .foregroundStyle(Theme.softInk)
-
-                if let lastFeed = lastEvent(.feed) {
-                    cycleBar(lastFeed: lastFeed, prediction: nextFeed, now: now)
-                        .padding(.top, 16)
-                    HStack {
-                        Text("\(ActivityType.feed.pastTense) \(humanTime(since: lastFeed.timestamp, now: now))")
-                        Spacer()
-                        Text(cycleText(nextFeed.expectedInterval))
+                    if nextFeed != nil {
+                        Image(systemName: "bell.fill")
+                            .font(.caption2)
+                            .foregroundStyle(Theme.feedInk)
                     }
-                    .font(Theme.text(11, relativeTo: .caption2))
-                    .foregroundStyle(Theme.softInk)
-                    .padding(.top, 6)
                 }
-            } else {
-                Text("Log the first feed to start predictions")
-                    .font(Theme.text(14, relativeTo: .subheadline))
-                    .foregroundStyle(Theme.softInk)
-                    .padding(.top, 8)
+
+                if let nextFeed {
+                    Text(heroCountdown(to: nextFeed.nextTime, from: now))
+                        .font(overdue ? Theme.display(30, relativeTo: .title)
+                                      : Theme.display(52, relativeTo: .largeTitle))
+                        .foregroundStyle(Theme.accent)
+                        .padding(.top, 4)
+                    Text(statusLine(for: nextFeed, overdue: overdue))
+                        .font(Theme.text(14, relativeTo: .subheadline))
+                        .foregroundStyle(Theme.softInk)
+
+                    if let lastFeed = lastEvent(.feed) {
+                        cycleBar(lastFeed: lastFeed, prediction: nextFeed, now: now)
+                            .padding(.top, 16)
+                        HStack {
+                            Text("\(ActivityType.feed.pastTense) \(humanTime(since: lastFeed.timestamp, now: now))")
+                            Spacer()
+                            Text(cycleText(nextFeed.expectedInterval))
+                        }
+                        .font(Theme.text(11, relativeTo: .caption2))
+                        .foregroundStyle(Theme.softInk)
+                        .padding(.top, 6)
+                    }
+                } else {
+                    Text("Log the first feed to start predictions")
+                        .font(Theme.text(14, relativeTo: .subheadline))
+                        .foregroundStyle(Theme.softInk)
+                        .padding(.top, 8)
+                }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(heroAccessibilityLabel(for: nextFeed, now: now))
+
+            Button {
+                log(.feed)
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "plus")
+                        .font(.system(.footnote, weight: .heavy))
+                    Text("Log feed")
+                        .font(Theme.display(17, relativeTo: .headline))
+                }
+                .foregroundStyle(.white)
+                .frame(maxWidth: .infinity, minHeight: 50)
+                .background(Theme.accent, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 16)
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -171,10 +196,6 @@ struct HomeView: View {
         .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 28))
         .shadow(color: .black.opacity(0.08), radius: 15, y: 6)
-        // One spoken sentence — the bell glyph, caveat, bar and
-        // countdown are meaningless as separate VoiceOver stops.
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(heroAccessibilityLabel(for: nextFeed, now: now))
     }
 
     /// How far through the feed cycle we are, as a bar. Full = overdue.
@@ -253,54 +274,45 @@ struct HomeView: View {
 
     // MARK: - Quick log
 
-    // Quick-log cards state only what already happened — one glance,
-    // one fact. All prediction talk lives in the hero card above. At
-    // accessibility text sizes half-width tiles can't fit their text,
-    // so the grid collapses to one column.
+    // Sleep is the other "live" activity, so it gets a hero-style
+    // full-width card (SleepCard), not a tile. HomeView resolves the
+    // open nap at action time so a stale render can't act on the
+    // wrong state.
+    private func sleepSection(now: Date) -> some View {
+        let nap = openNap(now: now)
+        return SleepCard(
+            now: now,
+            openNapStart: nap?.timestamp,
+            durationEstimate: napDurationEstimate(now: now),
+            nextNap: nap == nil ? prediction(for: .sleep, now: now) : nil,
+            lastSleptText: lastEvent(.sleep).map {
+                "\(ActivityType.sleep.pastTense) \(humanTime(since: $0.timestamp, now: now))"
+            },
+            onStartNap: { log(.sleep) },
+            onWakeUp: {
+                guard let nap = openNap(now: .now) else { return }
+                wakeUp(nap)
+            },
+            onAdjust: { adjustingNap = openNap(now: .now) }
+        )
+    }
+
+    // The grid holds the instants only — poop and pee. One glance, one
+    // past fact; the live activities (feed, sleep) own their heroes
+    // above. At accessibility text sizes half-width tiles can't fit
+    // their text, so the grid collapses to one column.
     private func quickLogGrid(now: Date) -> some View {
         let columns = typeSize.isAccessibilitySize
             ? [GridItem(.flexible())]
             : [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
         return LazyVGrid(columns: columns, spacing: 14) {
-            ForEach(ActivityType.allCases) { type in
-                if type == .sleep {
-                    sleepCard(now: now)
-                } else {
-                    TrackerCard(
-                        type: type,
-                        subtitle: subtitle(for: type, now: now),
-                        onLog: { log(type) }
-                    )
-                }
+            ForEach([ActivityType.poop, .pee]) { type in
+                TrackerCard(
+                    type: type,
+                    subtitle: subtitle(for: type, now: now),
+                    onLog: { log(type) }
+                )
             }
-        }
-    }
-
-    // Sleep is a state, so its card is a toggle: awake shows "+" (start
-    // nap) and the next-nap estimate; asleep shows the elapsed time, the
-    // wake estimate, a backdate row, and a sun button to end the nap.
-    // Sleep predictions live here, not in the hero — one place per fact.
-    @ViewBuilder
-    private func sleepCard(now: Date) -> some View {
-        if let nap = openNap(now: now) {
-            TrackerCard(
-                type: .sleep,
-                subtitle: "Asleep \(elapsedText(since: nap.timestamp, now: now))",
-                detail: wakeDetail(for: nap, now: now),
-                logIcon: "sun.max.fill",
-                logLabel: "Wake up",
-                onLog: { wakeUp(nap) },
-                adjust: ("since \(timeText(nap.timestamp)) · adjust",
-                         { adjustingNap = nap })
-            )
-        } else {
-            TrackerCard(
-                type: .sleep,
-                subtitle: subtitle(for: .sleep, now: now),
-                detail: nextNapDetail(now: now),
-                logLabel: "Start nap",
-                onLog: { log(.sleep) }
-            )
         }
     }
 
@@ -336,29 +348,21 @@ struct HomeView: View {
         }
     }
 
-    /// "likely wakes around 3:20" — display-only, deliberately never a
-    /// notification (nap time is quiet time).
-    private func wakeDetail(for nap: ActivityEvent, now: Date) -> String? {
+    /// How long the current nap is expected to run, from the durations
+    /// of recent completed naps. Feeds SleepCard's ring and wake text —
+    /// display-only, deliberately never a notification (nap time is
+    /// quiet time).
+    private func napDurationEstimate(now: Date) -> IntervalEstimate? {
         let durations = events.compactMap { event -> (value: TimeInterval, date: Date)? in
             guard event.type == .sleep,
                   let duration = event.durationSeconds, duration > 0 else { return nil }
             return (duration, event.timestamp.addingTimeInterval(duration))
         }
-        guard let estimate = PredictionEngine.estimateInterval(
+        return PredictionEngine.estimateInterval(
             samples: durations,
             now: now,
             config: .napDurationConfig(ageBand: baby.ageBand)
-        ) else { return nil }
-
-        let wake = nap.timestamp.addingTimeInterval(estimate.expected)
-        guard wake > now else { return "could wake any time now" }
-        return "likely wakes around \(timeText(wake))" + caveat(estimate.confidence)
-    }
-
-    private func nextNapDetail(now: Date) -> String? {
-        guard let next = prediction(for: .sleep, now: now) else { return nil }
-        guard next.nextTime > now else { return "next nap could start any time" }
-        return "next nap around \(timeText(next.nextTime))" + caveat(next.confidence)
+        )
     }
 
     private func log(_ type: ActivityType) {
@@ -415,18 +419,6 @@ struct HomeView: View {
             return rest == 0 ? "\(hours)h ago" : "\(hours)h \(rest)m ago"
         }
         return date.formatted(date: .abbreviated, time: .shortened)
-    }
-
-    /// Running-nap elapsed time: "42m" / "1h 5m". Same shape as the hero
-    /// countdown, but counting up.
-    private func elapsedText(since date: Date, now: Date) -> String {
-        let minutes = max(0, Int(now.timeIntervalSince(date) / 60))
-        let hours = minutes / 60
-        let rest = minutes % 60
-        if hours > 0 {
-            return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
-        }
-        return "\(minutes)m"
     }
 
     /// heroCountdown spelled out for VoiceOver — "1h 5m" reads as
