@@ -255,6 +255,20 @@ Each phase is independently shippable.
   the simple type/subtitle/onLog tile. At accessibility sizes the ring
   stacks above the text (AnyLayout swap, same idea as the grid
   collapse).
+  *Research-driven refinements:* nap prediction shows a **window**
+  ("between 1:15 and 1:45"), half-width = confidence (10/15/25 min) +
+  age pad (newborn +10, infant +5) — sleep readiness is a 15–30 min
+  biological range, and next-nap timing beats wake-time prediction as
+  the primary fact (wake windows + cortisol penalty; market unanimous:
+  SweetSpot, Napper, Nanit all lead with nap onset). Under 4 months the
+  awake card adds "her sleepy cues beat the clock at this age". On
+  "Wake up" the card transforms in place into a **wake summary** for
+  30 min — "slept 1h 12m", a short-nap flag under 45 min (one sleep
+  cycle; experts shorten the next window after these), the updated
+  next-nap window, and a one-tap "still asleep? undo" (reopens the
+  nap). Never a modal — taps are the currency at 3am. Daily sleep
+  totals deliberately deferred to the future **analysis tab** (history
+  of feed/nap/pee/poop).
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like

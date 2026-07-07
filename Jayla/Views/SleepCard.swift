@@ -30,10 +30,20 @@ struct SleepCard: View {
     let nextNap: Prediction?
     /// The past fact for the awake state, e.g. "Slept 2h ago".
     let lastSleptText: String?
+    /// Set for a short while after "Wake up": the duration of the nap
+    /// that just ended. Wake pays the loop off with a summary — shown
+    /// in place on this card, never as a modal (taps are the currency
+    /// at 3am; nothing here should need dismissing).
+    let justWokeDuration: TimeInterval?
 
     var onStartNap: () -> Void = {}
     var onWakeUp: () -> Void = {}
     var onAdjust: () -> Void = {}
+    var onUndoWake: () -> Void = {}
+
+    /// Under one sleep cycle — the "45-minute intruder". Experts advise
+    /// a shorter next wake window after these, so the summary says so.
+    private static let shortNap: TimeInterval = 45 * 60
 
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .title2) private var ringSize = 104.0
@@ -139,7 +149,7 @@ struct SleepCard: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text("NEXT NAP")
+                    Text(justWokeDuration == nil ? "NEXT NAP" : "SHE'S AWAKE")
                         .font(Theme.text(12, .black, relativeTo: .caption))
                         .tracking(1.5)
                         .foregroundStyle(Theme.sleepInk)
@@ -152,8 +162,20 @@ struct SleepCard: View {
                     }
                 }
 
+                if let justWokeDuration {
+                    Text("slept \(durationText(justWokeDuration))")
+                        .font(Theme.display(24, relativeTo: .title2))
+                        .foregroundStyle(Theme.ink)
+                    if justWokeDuration < Self.shortNap {
+                        Text("short nap — her next window may be shorter")
+                            .font(Theme.text(12, relativeTo: .caption))
+                            .foregroundStyle(Theme.softInk)
+                    }
+                }
+
                 if let nextNap {
-                    Text(nextNapText(nextNap))
+                    Text((justWokeDuration == nil ? "" : "next nap ")
+                        + nextNapText(nextNap))
                         .font(Theme.text(14, relativeTo: .subheadline))
                         .foregroundStyle(Theme.ink)
                 } else {
@@ -161,7 +183,7 @@ struct SleepCard: View {
                         .font(Theme.text(14, relativeTo: .subheadline))
                         .foregroundStyle(Theme.softInk)
                 }
-                if let lastSleptText {
+                if justWokeDuration == nil, let lastSleptText {
                     Text(lastSleptText)
                         .font(Theme.text(12, relativeTo: .caption))
                         .foregroundStyle(Theme.softInk)
@@ -178,6 +200,21 @@ struct SleepCard: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(awakeAccessibilityLabel)
+
+            if justWokeDuration != nil {
+                // Mis-stopped timers are the top timer complaint in the
+                // market — recovery stays one tap away.
+                Button(action: onUndoWake) {
+                    Text("still asleep? undo")
+                        .font(Theme.text(12, relativeTo: .caption))
+                        .foregroundStyle(Theme.softInk)
+                        .underline()
+                        .frame(minHeight: 32, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
+            }
 
             pill("Start nap", color: Theme.sleepInk, action: onStartNap)
                 .padding(.top, 16)
@@ -247,7 +284,11 @@ struct SleepCard: View {
 
     /// Elapsed nap time: "42m" / "1h 5m".
     private func elapsedText(since date: Date) -> String {
-        let minutes = max(0, Int(now.timeIntervalSince(date) / 60))
+        durationText(now.timeIntervalSince(date))
+    }
+
+    private func durationText(_ duration: TimeInterval) -> String {
+        let minutes = max(0, Int(duration / 60))
         let hours = minutes / 60
         let rest = minutes % 60
         if hours > 0 {
@@ -279,11 +320,19 @@ struct SleepCard: View {
     }
 
     private var awakeAccessibilityLabel: String {
-        guard let nextNap else {
-            return "Next nap. Log the first nap to start predictions."
+        var label = ""
+        if let justWokeDuration {
+            label += "She's awake, slept \(durationText(justWokeDuration))."
+            if justWokeDuration < Self.shortNap {
+                label += " Short nap, her next window may be shorter."
+            }
+            label += " "
         }
-        var label = "Next nap \(nextNapText(nextNap)). Jayla will remind you."
-        if let lastSleptText { label += " \(lastSleptText)." }
+        guard let nextNap else {
+            return label + "Next nap. Log the first nap to start predictions."
+        }
+        label += "Next nap \(nextNapText(nextNap)). Jayla will remind you."
+        if justWokeDuration == nil, let lastSleptText { label += " \(lastSleptText)." }
         return label
     }
 }
@@ -298,7 +347,24 @@ struct SleepCard: View {
                                   confidence: .roughly,
                                   sampleCount: 4,
                                   priorBlend: 1),
-              lastSleptText: "Slept 2h ago")
+              lastSleptText: "Slept 2h ago",
+              justWokeDuration: nil)
+        .padding()
+        .background(Theme.background)
+}
+
+#Preview("Just woke — short nap") {
+    SleepCard(now: .now,
+              ageBand: .infant,
+              openNapStart: nil,
+              durationEstimate: nil,
+              nextNap: Prediction(nextTime: .now.addingTimeInterval(100 * 60),
+                                  expectedInterval: 2.5 * 3_600,
+                                  confidence: .roughly,
+                                  sampleCount: 4,
+                                  priorBlend: 1),
+              lastSleptText: nil,
+              justWokeDuration: 28 * 60)
         .padding()
         .background(Theme.background)
 }
@@ -312,7 +378,8 @@ struct SleepCard: View {
                                                  sampleCount: 3,
                                                  priorBlend: 0.75),
               nextNap: nil,
-              lastSleptText: nil)
+              lastSleptText: nil,
+              justWokeDuration: nil)
         .padding()
         .background(Theme.background)
 }

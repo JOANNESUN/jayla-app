@@ -285,13 +285,32 @@ struct HomeView: View {
             lastSleptText: lastEvent(.sleep).map {
                 "\(ActivityType.sleep.pastTense) \(humanTime(since: $0.timestamp, now: now))"
             },
+            justWokeDuration: nap == nil ? justWokeNap(now: now)?.durationSeconds : nil,
             onStartNap: { log(.sleep) },
             onWakeUp: {
                 guard let nap = openNap(now: .now) else { return }
                 wakeUp(nap)
             },
-            onAdjust: { adjustingNap = openNap(now: .now) }
+            onAdjust: { adjustingNap = openNap(now: .now) },
+            onUndoWake: {
+                guard let nap = justWokeNap(now: .now) else { return }
+                ActivityRepository(context: modelContext).reopenNap(nap)
+                Task { await Rescheduler.recomputeAndReschedule() }
+            }
         )
+    }
+
+    /// The nap whose "Wake up" was tapped in the last half hour — the
+    /// window during which the card shows the wake summary and offers
+    /// undo. After that it's history (the analysis tab's job later).
+    private func justWokeNap(now: Date) -> ActivityEvent? {
+        guard let nap = events.first(where: {
+            $0.type == .sleep && ($0.durationSeconds ?? 0) > 0
+        }), let duration = nap.durationSeconds else { return nil }
+        let end = nap.timestamp.addingTimeInterval(duration)
+        guard now.timeIntervalSince(end) < 30 * 60,
+              now.timeIntervalSince(end) >= 0 else { return nil }
+        return nap
     }
 
     // The grid holds the instants only — poop and pee. One glance, one
