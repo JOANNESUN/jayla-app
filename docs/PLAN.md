@@ -269,6 +269,13 @@ Each phase is independently shippable.
   nap). Never a modal — taps are the currency at 3am. Daily sleep
   totals deliberately deferred to the future **analysis tab** (history
   of feed/nap/pee/poop).
+  *Poop/pee tiles (branch `pee-poop-daily-count`):* the tiles drop the
+  "25 min ago" line for a big **daily count** — parents need how many
+  times today, not when — with Joanne's kawaii poop/pee icons shown
+  full-size. The count is computed against the timeline's `now`, so it
+  rolls to 0 at midnight for free. Timestamps are still stored per
+  event for the future analysis tab. Visual treatment iterated in-place
+  on the branch (see its commits for the current styling).
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like
@@ -287,9 +294,13 @@ Each phase is independently shippable.
   window exclusion; cold-start blend; late-log clamp; erratic data → low
   confidence. Runs with `swiftc` alone, no simulator.
 - **App:** build with `xcodebuild -scheme Jayla -destination
-  'platform=macOS' build` for a fast type-check (the dev Mac has no iOS
-  simulator runtimes); run for real from Xcode on a simulator or iPhone —
-  see `RUNNING.md`.
+  'platform=macOS' build` for a fast type-check, or against
+  `'generic/platform=iOS Simulator'` now that the dev Mac has iOS
+  simulator runtimes (iPhone 17 family, Xcode 26); run for real from
+  Xcode on a simulator or iPhone — see `RUNNING.md`. Flows can be
+  verified headlessly by seeding the SwiftData sqlite store with
+  `sqlite3` (Core Data epoch = unix − 978307200) and reading the DEBUG
+  console prints.
 - **Notifications (3–4):** short debug intervals; verify long-press shows
   `Log feed`/`Snooze`; tapping `Log feed` with the app killed creates
   exactly one event and reschedules; test denied-permission degradation and

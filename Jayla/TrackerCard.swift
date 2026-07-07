@@ -22,12 +22,14 @@ struct TrackerCard: View {
     // and static uses don't have to supply one.
     var onLog: () -> Void = {}
 
-    // Glyphs sit next to scaling text, so they scale too.
-    @ScaledMetric(relativeTo: .headline) private var iconSize = 56.0
+    // Glyphs sit next to scaling text, so they scale too. The SVGs are
+    // cropped tight (no built-in margins), so 48pt reads bigger than
+    // the old 56pt box did.
+    @ScaledMetric(relativeTo: .headline) private var iconSize = 48.0
     @ScaledMetric(relativeTo: .headline) private var plusSize = 28.0
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top) {
                 Image(type.icon)
                     .resizable()
