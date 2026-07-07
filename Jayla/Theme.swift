@@ -41,13 +41,17 @@ enum Theme {
     static let sleepBadge = Color(hex: "DDF0FF")   // soft sky blue background
     static let sleepInk   = Color(hex: "4DA6FF")   // vibrant sky blue
 
-    // Poop — green
-    static let poopBadge  = Color(hex: "DDF7D2")   // fresh green background
-    static let poopInk    = Color(hex: "34C759")   // vibrant leaf green
+    // Poop — warm brown, sampled from the kawaii poop icon
+    static let poopBadge  = Color(hex: "F0E9E2")   // warm beige card surface
+    static let poopInk    = Color(hex: "A6713E")   // icon brown ("+" button, count)
+    static let poopBorder = Color(hex: "E2D4C7")   // beige card edge
 
     // Pee — yellow / marigold
-    static let peeBadge   = Color(hex: "FFF0B8")   // warm yellow background
+    static let peeBadge   = Color(hex: "FBF4CE")   // pale butter card surface
     static let peeInk     = Color(hex: "FFC61A")   // vibrant marigold
+    static let peeBorder  = Color(hex: "F2E4A6")   // butter card edge
+    static let peeCount   = Color(hex: "C7771E")   // burnt orange — marigold is
+                                                   // too pale to read on butter
 
     // Extra painterly accents from the reference images
     static let lavender   = Color(hex: "8E5EEA")   // vivid lavender

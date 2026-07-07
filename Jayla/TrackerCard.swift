@@ -5,36 +5,33 @@
 //  Created by JO on 2/7/2026.
 //
 //  One quick-log tile of the instants grid (poop/pee — the live
-//  activities feed and sleep have their own hero cards): mascot badge
-//  top-left, colored "+" log button top-right, then the activity name
-//  and the last-happened fact.
+//  activities feed and sleep have their own hero cards): kawaii icon
+//  top-left, colored "+" log button top-right, then the day's count.
+//  Deliberately no "when": parents only care how many times the baby
+//  went today, and every event still stores its timestamp for later
+//  analysis.
 //
 
 import SwiftUI
 
 struct TrackerCard: View {
     let type: ActivityType
-    let subtitle: String    // what already happened, e.g. "25 min ago"
+    let count: Int          // times logged today
     // Called when the mom taps the "+". Defaults to a no-op so previews
     // and static uses don't have to supply one.
     var onLog: () -> Void = {}
 
-    // Badges hold glyphs next to scaling text, so they scale too.
-    @ScaledMetric(relativeTo: .headline) private var badgeSize = 42.0
+    // Glyphs sit next to scaling text, so they scale too.
+    @ScaledMetric(relativeTo: .headline) private var iconSize = 48.0
     @ScaledMetric(relativeTo: .headline) private var plusSize = 28.0
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
-                Circle()
-                    .fill(type.badgeColor)
-                    .frame(width: badgeSize, height: badgeSize)
-                    .overlay(
-                        Image(type.mascot)
-                            .resizable()
-                            .scaledToFit()
-                            .padding(5)
-                    )
+                Image(type.icon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: iconSize, height: iconSize)
                     .accessibilityHidden(true)
 
                 Spacer()
@@ -42,20 +39,24 @@ struct TrackerCard: View {
                 logButton
             }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(type.label)
-                    .font(Theme.display(17, relativeTo: .headline))
-                    .foregroundStyle(Theme.ink)
-                Text(subtitle)
-                    .font(Theme.text(12, relativeTo: .caption))
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("\(count)")
+                    .font(Theme.display(36, relativeTo: .title))
+                    .foregroundStyle(type.countColor)
+                Text("today")
+                    .font(Theme.text(13, relativeTo: .caption))
                     .foregroundStyle(Theme.softInk)
-                    .lineLimit(2)
             }
-            .accessibilityElement(children: .combine)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(type.label), \(count) today")
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.white, in: RoundedRectangle(cornerRadius: 22))
+        .background(type.badgeColor, in: RoundedRectangle(cornerRadius: 22))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .strokeBorder(type.borderColor, lineWidth: 1.5)
+        )
         .cardShadow()
     }
 
@@ -84,15 +85,15 @@ struct TrackerCard: View {
 #Preview("Instants grid") {
     let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
     return LazyVGrid(columns: columns, spacing: 14) {
-        TrackerCard(type: .poop, subtitle: "3h ago")
-        TrackerCard(type: .pee, subtitle: "Nothing logged yet")
+        TrackerCard(type: .poop, count: 3)
+        TrackerCard(type: .pee, count: 5)
     }
     .padding()
     .background(Theme.background)
 }
 
 #Preview("Accessibility size") {
-    TrackerCard(type: .poop, subtitle: "25 min ago")
+    TrackerCard(type: .poop, count: 3)
         .environment(\.dynamicTypeSize, .accessibility2)
         .padding()
         .background(Theme.background)

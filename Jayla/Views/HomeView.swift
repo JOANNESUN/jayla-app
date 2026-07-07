@@ -314,9 +314,9 @@ struct HomeView: View {
     }
 
     // The grid holds the instants only — poop and pee. One glance, one
-    // past fact; the live activities (feed, sleep) own their heroes
-    // above. At accessibility text sizes half-width tiles can't fit
-    // their text, so the grid collapses to one column.
+    // number: how many times today. The live activities (feed, sleep)
+    // own their heroes above. At accessibility text sizes half-width
+    // tiles can't fit their text, so the grid collapses to one column.
     private func quickLogGrid(now: Date) -> some View {
         let columns = typeSize.isAccessibilitySize
             ? [GridItem(.flexible())]
@@ -325,7 +325,7 @@ struct HomeView: View {
             ForEach([ActivityType.poop, .pee]) { type in
                 TrackerCard(
                     type: type,
-                    subtitle: subtitle(for: type, now: now),
+                    count: todayCount(for: type, now: now),
                     onLog: { log(type) }
                 )
             }
@@ -338,11 +338,14 @@ struct HomeView: View {
         events.first { $0.type == type }
     }
 
-    // The card title already names the activity, so the subtitle is
-    // just the time: "25 min ago".
-    private func subtitle(for type: ActivityType, now: Date) -> String {
-        guard let last = lastEvent(type) else { return "Nothing logged yet" }
-        return humanTime(since: last.timestamp, now: now)
+    // How many times today, for the poop/pee tiles. Computed against
+    // the timeline's `now` so the count rolls to 0 at midnight without
+    // extra plumbing.
+    private func todayCount(for type: ActivityType, now: Date) -> Int {
+        events.count {
+            $0.typeRaw == type.rawValue
+                && Calendar.current.isDate($0.timestamp, inSameDayAs: now)
+        }
     }
 
     private func prediction(for type: ActivityType, now: Date) -> Prediction? {
