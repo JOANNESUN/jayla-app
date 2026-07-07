@@ -31,15 +31,6 @@ enum ActivityType: String, Codable, CaseIterable, Identifiable {
     // Feed and sleep hero cards keep their mascots.
     var icon: String { rawValue }
 
-    var badgeColor: Color {
-        switch self {
-        case .feed:  Theme.feedBadge
-        case .sleep: Theme.sleepBadge
-        case .poop:  Theme.poopBadge
-        case .pee:   Theme.peeBadge
-        }
-    }
-
     var inkColor: Color {
         switch self {
         case .feed:  Theme.feedInk
@@ -49,8 +40,8 @@ enum ActivityType: String, Codable, CaseIterable, Identifiable {
         }
     }
 
-    /// Edge stroke of the poop/pee count tiles — a shade deeper than the
-    /// tile surface. Clear for feed/sleep, which draw no border.
+    /// Colored ring around the white poop/pee count tiles. Clear for
+    /// feed/sleep, which draw no border.
     var borderColor: Color {
         switch self {
         case .poop: Theme.poopBorder

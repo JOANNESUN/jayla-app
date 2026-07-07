@@ -5,8 +5,9 @@
 //  Created by JO on 2/7/2026.
 //
 //  One quick-log tile of the instants grid (poop/pee — the live
-//  activities feed and sleep have their own hero cards): kawaii icon
-//  top-left, colored "+" log button top-right, then the day's count.
+//  activities feed and sleep have their own hero cards): white tile
+//  ringed in the activity color, kawaii icon top-left, colored "+"
+//  log button top-right, then the day's count.
 //  Deliberately no "when": parents only care how many times the baby
 //  went today, and every event still stores its timestamp for later
 //  analysis.
@@ -22,7 +23,7 @@ struct TrackerCard: View {
     var onLog: () -> Void = {}
 
     // Glyphs sit next to scaling text, so they scale too.
-    @ScaledMetric(relativeTo: .headline) private var iconSize = 48.0
+    @ScaledMetric(relativeTo: .headline) private var iconSize = 56.0
     @ScaledMetric(relativeTo: .headline) private var plusSize = 28.0
 
     var body: some View {
@@ -52,10 +53,10 @@ struct TrackerCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(type.badgeColor, in: RoundedRectangle(cornerRadius: 22))
+        .background(.white, in: RoundedRectangle(cornerRadius: 22))
         .overlay(
             RoundedRectangle(cornerRadius: 22)
-                .strokeBorder(type.borderColor, lineWidth: 1.5)
+                .strokeBorder(type.borderColor, lineWidth: 2)
         )
         .cardShadow()
     }
