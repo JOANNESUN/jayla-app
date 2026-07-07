@@ -20,6 +20,8 @@ import SwiftUI
 
 struct SleepCard: View {
     let now: Date
+    /// Widens the nap window and softens the copy for young babies.
+    let ageBand: AgeBand
     /// nil = awake.
     let openNapStart: Date?
     /// How long the current nap is expected to run (asleep state).
@@ -164,6 +166,15 @@ struct SleepCard: View {
                         .font(Theme.text(12, relativeTo: .caption))
                         .foregroundStyle(Theme.softInk)
                 }
+                // Under ~4 months sleep pressure is fuzzy — the expert
+                // consensus is cues over clocks, so say so instead of
+                // letting the window read as gospel.
+                if nextNap != nil, ageBand != .older {
+                    Text("her sleepy cues beat the clock at this age")
+                        .font(Theme.text(12, relativeTo: .caption))
+                        .foregroundStyle(Theme.softInk)
+                        .italic()
+                }
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(awakeAccessibilityLabel)
@@ -221,9 +232,17 @@ struct SleepCard: View {
         return "~\(minutes)m left"
     }
 
+    // A range, not a point: the window IS the hedge, so the caveat
+    // suffix only stays while the engine is still learning.
     private func nextNapText(_ prediction: Prediction) -> String {
         guard prediction.nextTime > now else { return "could start any time now" }
-        return "around \(timeText(prediction.nextTime))" + caveat(prediction.confidence)
+        let window = prediction.napWindow(ageBand: ageBand)
+        let suffix = prediction.confidence == .learning ? " · still learning" : ""
+        if window.lowerBound <= now {
+            return "between now and \(timeText(window.upperBound))" + suffix
+        }
+        return "between \(timeText(window.lowerBound)) and \(timeText(window.upperBound))"
+            + suffix
     }
 
     /// Elapsed nap time: "42m" / "1h 5m".
@@ -271,6 +290,7 @@ struct SleepCard: View {
 
 #Preview("Awake") {
     SleepCard(now: .now,
+              ageBand: .infant,
               openNapStart: nil,
               durationEstimate: nil,
               nextNap: Prediction(nextTime: .now.addingTimeInterval(45 * 60),
@@ -285,6 +305,7 @@ struct SleepCard: View {
 
 #Preview("Asleep") {
     SleepCard(now: .now,
+              ageBand: .infant,
               openNapStart: .now.addingTimeInterval(-72 * 60),
               durationEstimate: IntervalEstimate(expected: 107 * 60,
                                                  confidence: .roughly,

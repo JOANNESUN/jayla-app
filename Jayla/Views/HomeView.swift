@@ -35,10 +35,6 @@ struct HomeView: View {
                     VStack(alignment: .leading, spacing: 18) {
                         header
                         heroCard(now: timeline.date)
-                        Text("Quick log")
-                            .font(Theme.display(17, relativeTo: .headline))
-                            .foregroundStyle(Theme.ink)
-                            .padding(.horizontal, 2)
                         sleepSection(now: timeline.date)
                         quickLogGrid(now: timeline.date)
                     }
@@ -282,6 +278,7 @@ struct HomeView: View {
         let nap = openNap(now: now)
         return SleepCard(
             now: now,
+            ageBand: baby.ageBand,
             openNapStart: nap?.timestamp,
             durationEstimate: napDurationEstimate(now: now),
             nextNap: nap == nil ? prediction(for: .sleep, now: now) : nil,

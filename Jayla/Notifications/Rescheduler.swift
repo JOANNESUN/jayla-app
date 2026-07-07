@@ -120,10 +120,11 @@ enum Rescheduler {
                     at: now.addingTimeInterval(seconds), babyName: babyName)
             } else {
                 NotificationScheduler.cancelNapCheck()
+                let start = now.addingTimeInterval(seconds + 15 * 60)
                 await NotificationScheduler.scheduleNapReminder(
                     at: now.addingTimeInterval(seconds),
                     babyName: babyName,
-                    predictedStart: now.addingTimeInterval(seconds + 15 * 60))
+                    window: start...start.addingTimeInterval(30 * 60))
             }
             return
         }
@@ -162,13 +163,14 @@ enum Rescheduler {
             }
 
             // Lead time: the nudge is for starting a wind-down, so it
-            // has to land before the predicted nap, not at it.
+            // has to land before the predicted window opens, not in it.
+            let window = prediction.napWindow(ageBand: ageBand)
             let lead: TimeInterval = 15 * 60
-            let fireDate = max(prediction.nextTime.addingTimeInterval(-lead),
+            let fireDate = max(window.lowerBound.addingTimeInterval(-lead),
                                now.addingTimeInterval(grace))
             await NotificationScheduler.scheduleNapReminder(at: fireDate,
                                                             babyName: babyName,
-                                                            predictedStart: prediction.nextTime)
+                                                            window: window)
             #if DEBUG
             print("⏰ [Jayla] Nap reminder scheduled for \(fireDate.formatted(date: .omitted, time: .standard)) (\(prediction.confidence.label), \(prediction.sampleCount) intervals)")
             #endif

@@ -13,6 +13,29 @@
 
 import Foundation
 
+nonisolated extension Prediction {
+
+    /// Sleep readiness is a 15–30 minute biological window, not a
+    /// moment — so sleep UI shows a range instead of a false-precision
+    /// point. Width scales with confidence AND age: under ~4 months
+    /// rhythms are inherently fuzzier, so young bands widen the window
+    /// no matter how steady the data looks.
+    func napWindow(ageBand: AgeBand) -> ClosedRange<Date> {
+        let confidenceHalf: TimeInterval = switch confidence {
+        case .confident: 10 * 60
+        case .roughly:   15 * 60
+        case .learning:  25 * 60
+        }
+        let agePad: TimeInterval = switch ageBand {
+        case .newborn: 10 * 60
+        case .infant:  5 * 60
+        case .older:   0
+        }
+        let half = confidenceHalf + agePad
+        return nextTime.addingTimeInterval(-half)...nextTime.addingTimeInterval(half)
+    }
+}
+
 nonisolated extension PredictionEngine.Config {
 
     private static let hour: TimeInterval = 3_600

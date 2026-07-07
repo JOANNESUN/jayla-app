@@ -74,16 +74,19 @@ nonisolated enum NotificationScheduler {
     }
 
     /// Lead-time nudge while she's awake: fires ~15 min before the
-    /// predicted nap start so there's time for a wind-down (the
+    /// predicted nap window so there's time for a wind-down (the
     /// SweetSpot/Napper pattern — notify before sleep, never during).
+    /// The copy shows a window, not a point — sleep readiness is a
+    /// 15–30 min biological range and the copy shouldn't overclaim.
     static func scheduleNapReminder(at date: Date,
                                     babyName: String,
-                                    predictedStart: Date) async {
+                                    window: ClosedRange<Date>) async {
+        let start = window.lowerBound.formatted(date: .omitted, time: .shortened)
+        let end = window.upperBound.formatted(date: .omitted, time: .shortened)
         await schedule(
             id: pendingNapID,
             title: "\(babyName) may be getting sleepy soon 😴",
-            body: "Next nap predicted around "
-                + predictedStart.formatted(date: .omitted, time: .shortened)
+            body: "Next nap predicted between \(start) and \(end)"
                 + " — a guideline, not a deadline.",
             at: date
         )
