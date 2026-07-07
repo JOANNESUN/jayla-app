@@ -219,6 +219,30 @@ Each phase is independently shippable.
   you") and "+" buttons announce their activity; pickers labeled.
   Deferred: sleep-duration UI (needs start/stop logging → Phase 6 nap
   work) and real dark mode (Blush is deliberately light-only).
+- [x] **Sleep as a state — nap toggle, wake prediction, state-aware
+  notifications** (branch `sleep-toggle-notifications`). Market research
+  (Huckleberry SweetSpot, Napper, Nara, Baby Daybook) settled the design:
+  predict sleep *onset* and notify with lead time while awake; never ping
+  during a nap (wake estimate is display-only); backdating is table
+  stakes. *Data:* a nap in progress is a `.sleep` event with
+  `durationSeconds == nil`; "Wake up" fills the duration in. No schema
+  change; a 16h guard keeps legacy instant-tap sleep rows (all nil
+  duration) from reading as open, and only `durationSeconds > 0` rows
+  feed duration stats. *Engine:* weighted core extracted as
+  `estimateInterval(samples:)` so nap durations reuse the double
+  window/recency/prior machinery; nap-duration priors ~1h–1.5h by age
+  band. *Notifications:* `pending_nap` fires 15 min before the predicted
+  nap start ("guideline, not a deadline" copy); `nap_check` is the
+  runaway-nap guard at `max(2× predicted duration, 2.5h)` — a check-in
+  no competitor ships (they all let a forgotten timer run; Nara's 24h
+  red badge is the market's best). Exactly one of the two is pending,
+  managed by `Rescheduler.rescheduleNap` (same choke-point pattern;
+  DEBUG env `JAYLA_NAP_REMINDER_IN_SECONDS`). *UI:* the sleep card is a
+  toggle — awake: "+" starts a nap instantly, subtitle shows the
+  next-nap estimate; asleep: sun button ends it, "Asleep 42m", wake
+  estimate, and a "since 2:40 · adjust" wheel to backdate a running
+  start (clamped to the past). Sleep predictions live on the sleep card,
+  not the hero — one place per fact.
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like
