@@ -15,9 +15,8 @@ struct ContentView: View {
     @Query private var profiles: [BabyProfile]
     @State private var tab = ContentView.initialTab
 
-    // Dev-only: JAYLA_OPEN_HISTORY=1 (or =month) launches straight into
-    // the history tab so headless simulator runs can read its console
-    // dump and screenshot either page.
+    // Dev-only: JAYLA_OPEN_HISTORY=1 launches straight into the history
+    // tab so headless simulator runs can read its console dump.
     private static var initialTab: Int {
         #if DEBUG
         ProcessInfo.processInfo.environment["JAYLA_OPEN_HISTORY"] != nil ? 1 : 0
@@ -30,10 +29,10 @@ struct ContentView: View {
         if let baby = profiles.first {
             TabView(selection: $tab) {
                 HomeView(baby: baby)
-                    .tabItem { Label("Today", systemImage: "sun.max.fill") }
+                    .tabItem { Label("Home", systemImage: "house.fill") }
                     .tag(0)
                 HistoryView()
-                    .tabItem { Label("History", systemImage: "calendar") }
+                    .tabItem { Label("History", systemImage: "chart.bar.fill") }
                     .tag(1)
             }
             .tint(Theme.accent)

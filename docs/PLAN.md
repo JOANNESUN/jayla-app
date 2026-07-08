@@ -293,26 +293,28 @@ Each phase is independently shippable.
   open nap draws as a growing gradient ribbon, counted live. Navigation
   is a minimal 2-tab TabView (Today / History) in ContentView. Shared
   time strings extracted to `Utilities/Formatters.swift`.
-  *Restructured to Joanne's design comp (July 8):* the page is now a
-  **Today / Month toggle** (custom segmented pill), sleep always on
-  top, feed/poop/pee only ever aggregates — no per-event rows.
-  **Today** = sleep card (total so far, live; horizontal 24h strip —
-  the actogram column laid down) + the day's sleeps as swipe-deletable
-  rows + count-today cards with "last 2:30 pm" sublines. **Month** =
-  the 30-day actogram (sleep ribbons only now; feed dots and
-  per-column counts removed, tap-select removed) + a 4-week sleep
-  trend card (avg/day, ▲/▼ week-over-week delta — only claimed with
-  ≥3 sleep-days in both weeks, ±5% steady band; daily line chart that
+  *Restructured to Joanne's design comp (July 8, two rounds):* no
+  in-page toggle — the bottom tab bar does the job (**Home** = today,
+  house icon; **History** = the month, chart icon). The History tab is
+  one scroll, sleep first: the 30-day **sleep rhythm actogram** (sleep
+  ribbons only; feed dots, per-column counts and tap-select removed —
+  Joanne asked "line instead of bar?", the actogram stayed on the
+  argument that it shows WHEN she sleeps while a line only shows how
+  much, and the line already exists below) → the **4-week sleep trend
+  card** (avg/day, ▲/▼ week-over-week delta — only claimed with ≥3
+  sleep-days in both weeks, ±5% steady band; daily line chart that
   skips no-data days AND excludes today since a half-day would drag
   the line down; hedged narrative chip — descriptive, never a verdict,
-  no "on track" claims) + per-day average cards ("5.7 / day · 171 this
-  month"). Frequencies only by Joanne's call — Jayla logs moments, not
-  volumes, so no ml/day. Trend math is pure `DayLog.trends`, covered
-  by run-daylog.sh. Trade-off accepted: past-day drill-in and
-  moment-event deletion from history are gone (sleep rows remain
-  deletable); DEBUG env `JAYLA_OPEN_HISTORY=1|month` opens either page
-  headlessly. Deferred: scroll-back past 30 days, editing times from
-  history.
+  no "on track" claims) → **per-day average cards** ("5.7 / day · 171
+  this month"). Frequencies only by Joanne's call — Jayla logs
+  moments, not volumes, so no ml/day. Trend math is pure
+  `DayLog.trends`, covered by run-daylog.sh. Trade-offs accepted:
+  no per-event history rows, so no deleting mis-logs from history and
+  no past-day drill-in; DEBUG env `JAYLA_OPEN_HISTORY=1` opens the tab
+  headlessly. Deferred: scroll-back past 30 days, editing/deleting
+  events from history, a "Jayla" profile tab (parked with the
+  settings sheet). Deliberately NOT built: per-event log list — revisit
+  only if mis-log correction becomes a real pain.
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like
