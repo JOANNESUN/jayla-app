@@ -340,6 +340,13 @@ Each phase is independently shippable.
   "still learning her rhythm". Display-only — never logs or notifies.
   Engine covered by ForecastEngineTests in `run.sh` (fixed UTC calendar
   so the bedtime assertion can't drift with the machine's timezone).
+  Second pass (Joanne's asks): both cards fit ONE screen — 170pt
+  polaroid, tighter paddings, slim one-line fuss warning, learning
+  caveat folded into the feels-like line as a " · still learning"
+  suffix — and a soft `pencil.circle.fill` beside the name makes
+  editing discoverable (whole name block stays the tap target).
+  Bed hours are 7pm–6am: past-midnight sleep read as "nap" until a
+  simulator screenshot caught it (regression test added).
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like
