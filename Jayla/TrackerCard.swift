@@ -24,7 +24,7 @@ struct TrackerCard: View {
 
     // Glyphs sit next to scaling text, so they scale too. The SVGs are
     // cropped tight (no built-in margins).
-    @ScaledMetric(relativeTo: .headline) private var iconSize = 56.0
+    @ScaledMetric(relativeTo: .headline) private var iconSize = 44.0
     @ScaledMetric(relativeTo: .headline) private var plusSize = 28.0
 
     // Centered column — big icon with the "+" tucked into its corner,
