@@ -164,6 +164,24 @@ test("naps repeat at the learned start-to-start spacing") {
            "16:00 hour ends 45m of wake before the 17:15 nap → fussy, got \(slotState(f, 1))")
 }
 
+test("sleep past midnight still reads bed, not nap") {
+    // Late evening: now 21:30, slots 22:00…02:00.
+    var comps = DateComponents()
+    comps.year = 2026; comps.month = 7; comps.day = 8
+    comps.hour = 21; comps.minute = 30
+    comps.timeZone = TimeZone(identifier: "UTC")!
+    let evening = utc.date(from: comps)!
+
+    var input = ForecastEngine.Input(now: evening)
+    input.asleepSince = evening.addingTimeInterval(-30 * minute) // down 21:00
+    input.napDuration = 6 * hour                                 // through 03:00
+    let f = ForecastEngine.forecast(input, calendar: utc)!
+    for slot in f.slots {
+        expect(slot.state == .bed,
+               "\(utc.component(.hour, from: slot.hour)):00 should be bed, got \(slot.state)")
+    }
+}
+
 test("learning flag rides through and softens the mood") {
     var input = ForecastEngine.Input(now: t0)
     input.lastFeed = t0.addingTimeInterval(-1.5 * hour)

@@ -30,17 +30,19 @@ struct ProfileView: View {
 
             // everyMinute keeps the forecast's "now" honest while the
             // page is open; logging elsewhere refreshes via @Query.
+            // Both cards are sized to share one screen — the ScrollView
+            // only earns its keep at accessibility text sizes.
             TimelineView(.everyMinute) { timeline in
                 ScrollView {
-                    VStack(spacing: 18) {
+                    VStack(spacing: 12) {
                         keepsakeCard
                         ForecastCard(babyName: baby.name,
                                      forecast: forecast(now: timeline.date),
                                      now: timeline.date)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 24)
-                    .padding(.bottom, 32)
+                    .padding(.top, 10)
+                    .padding(.bottom, 16)
                 }
             }
         }
@@ -67,19 +69,26 @@ struct ProfileView: View {
     private var keepsakeCard: some View {
         VStack(spacing: 4) {
             polaroid
-                .padding(.top, 40)
-                .padding(.bottom, 30)
+                .padding(.top, 22)
+                .padding(.bottom, 18)
 
-            // Name front and center, magazine-cover style: big name,
-            // age pill, then one small born · zodiac line. All of it is
-            // one tap target for the same edit sheet.
+            // Name front and center, magazine-cover style: big name
+            // (with a little pencil so editing is discoverable), age
+            // pill, then one small born · zodiac line. All of it is one
+            // tap target for the same edit sheet.
             Button {
                 isEditing = true
             } label: {
-                VStack(spacing: 10) {
-                    Text(baby.name)
-                        .font(Theme.display(34, relativeTo: .largeTitle))
-                        .foregroundStyle(Theme.ink)
+                VStack(spacing: 8) {
+                    HStack(spacing: 7) {
+                        Text(baby.name)
+                            .font(Theme.display(30, relativeTo: .largeTitle))
+                            .foregroundStyle(Theme.ink)
+                        Image(systemName: "pencil.circle.fill")
+                            .font(.system(size: 20))
+                            .foregroundStyle(Theme.softInk.opacity(0.55))
+                            .accessibilityHidden(true)
+                    }
                     HStack(spacing: 6) {
                         Text("🎂")
                         Text(baby.keepsakeAge)
@@ -87,10 +96,10 @@ struct ProfileView: View {
                             .foregroundStyle(Theme.keepsakeDate)
                     }
                     .padding(.horizontal, 14)
-                    .padding(.vertical, 7)
+                    .padding(.vertical, 6)
                     .background(Theme.background, in: Capsule())
                     Text("born \(baby.birthdate.formatted(.dateTime.day().month(.wide).year())) · \(baby.zodiacSign)")
-                        .font(Theme.text(13, relativeTo: .footnote))
+                        .font(Theme.text(12, relativeTo: .footnote))
                         .foregroundStyle(Theme.softInk)
                 }
             }
@@ -99,8 +108,8 @@ struct ProfileView: View {
             .accessibilityHint("Edits her name and birthday")
         }
         .frame(maxWidth: .infinity)
-        .padding(.bottom, 34)
-        .background(Theme.keepsakeCard, in: RoundedRectangle(cornerRadius: 32))
+        .padding(.bottom, 18)
+        .background(Theme.keepsakeCard, in: RoundedRectangle(cornerRadius: 28))
         .cardShadow()
     }
 
@@ -116,7 +125,7 @@ struct ProfileView: View {
                 isEditing = true
             } label: {
                 Text("♡")
-                    .font(Theme.handwritten(30, relativeTo: .title2))
+                    .font(Theme.handwritten(24, relativeTo: .title3))
                     .foregroundStyle(Theme.ink)
             }
             .buttonStyle(.plain)
@@ -132,11 +141,11 @@ struct ProfileView: View {
         // Star and moon floating beside the polaroid, like stickers on
         // the keepsake card.
         .overlay(alignment: .topTrailing) {
-            Text("⭐️").font(.system(size: 34)).offset(x: 30, y: 16)
+            Text("⭐️").font(.system(size: 28)).offset(x: 24, y: 12)
                 .accessibilityHidden(true)
         }
         .overlay(alignment: .bottomLeading) {
-            Text("🌙").font(.system(size: 30)).offset(x: -32, y: -40)
+            Text("🌙").font(.system(size: 24)).offset(x: -26, y: -32)
                 .accessibilityHidden(true)
         }
     }
@@ -160,7 +169,7 @@ struct ProfileView: View {
                     photoPlaceholder
                 }
             }
-            .frame(width: 224, height: 224)
+            .frame(width: 170, height: 170)
             .clipShape(RoundedRectangle(cornerRadius: 4))
         }
         .buttonStyle(.plain)

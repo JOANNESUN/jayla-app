@@ -65,8 +65,10 @@ nonisolated enum ForecastEngine {
     }
 
     static let slotCount = 5
-    /// Sleep at/after this local hour reads as "bed", not "nap".
+    /// Sleep between these local hours (evening through early morning)
+    /// reads as "bed", not "nap".
     private static let bedHour = 19
+    private static let morningHour = 6
     /// Minimum plausible awake stretch between naps.
     private static let minWake: TimeInterval = 45 * 60
     /// How close relief (feed/nap) must be past the hour's end for the
@@ -97,10 +99,11 @@ nonisolated enum ForecastEngine {
             let mid = hour.addingTimeInterval(1_800)
             let state: SlotState
             if let nap = naps.first(where: { $0.start <= mid && mid < $0.end }) {
-                // Evening sleep is bed; hour-of-day from the block's
-                // start so a 7pm-onwards stretch reads as one bedtime.
+                // Evening-through-early-morning sleep is bed; hour-of-day
+                // from the block's start (clamped to this slot) so a
+                // 7pm-onwards stretch reads as one bedtime past midnight.
                 let startHour = calendar.component(.hour, from: max(nap.start, hour))
-                state = startHour >= bedHour ? .bed : .nap
+                state = startHour >= bedHour || startHour < morningHour ? .bed : .nap
             } else if feeds.contains(where: { hour <= $0 && $0 < end }) {
                 state = .feed
             } else if isFussy(hourEnd: end, feeds: feeds, naps: naps) {

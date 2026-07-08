@@ -17,19 +17,16 @@ struct ForecastCard: View {
     let now: Date
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        // Compact on purpose: the profile page fits the keepsake card
+        // and this one on a single screen, no scrolling.
+        VStack(alignment: .leading, spacing: 12) {
             header
 
             if let forecast {
-                moodRow(forecast.mood)
+                moodRow(forecast)
                 hourStrip(forecast.slots)
                 if let warning = forecast.fussWarning {
-                    warningBox(at: warning)
-                }
-                if forecast.isLearning {
-                    Text("still learning her rhythm — forecasts get truer with every log ✨")
-                        .font(Theme.text(12, relativeTo: .caption))
-                        .foregroundStyle(Theme.softInk)
+                    warningLine(at: warning)
                 }
             } else {
                 Text("her forecast rolls in with the first feed or nap ☁️")
@@ -38,10 +35,10 @@ struct ForecastCard: View {
                     .padding(.vertical, 8)
             }
         }
-        .padding(22)
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.white)
-        .clipShape(RoundedRectangle(cornerRadius: 28))
+        .clipShape(RoundedRectangle(cornerRadius: 24))
         .cardShadow()
     }
 
@@ -61,17 +58,19 @@ struct ForecastCard: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func moodRow(_ mood: ForecastEngine.Mood) -> some View {
-        HStack(spacing: 14) {
-            Text(emoji(for: mood))
-                .font(.system(size: 44))
+    private func moodRow(_ forecast: ForecastEngine.Forecast) -> some View {
+        HStack(spacing: 12) {
+            Text(emoji(for: forecast.mood))
+                .font(.system(size: 34))
                 .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(label(for: mood))
-                    .font(Theme.display(26, relativeTo: .title2))
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label(for: forecast.mood))
+                    .font(Theme.display(21, relativeTo: .title3))
                     .foregroundStyle(Theme.ink)
-                Text(feelsLike(mood))
-                    .font(Theme.text(13, relativeTo: .footnote))
+                // Same gentle caveat suffix the home hero uses.
+                Text(feelsLike(forecast.mood)
+                     + (forecast.isLearning ? " · still learning" : ""))
+                    .font(Theme.text(12, relativeTo: .caption))
                     .foregroundStyle(Theme.softInk)
             }
         }
@@ -81,12 +80,12 @@ struct ForecastCard: View {
     private func hourStrip(_ slots: [ForecastEngine.Slot]) -> some View {
         HStack(spacing: 0) {
             ForEach(slots, id: \.hour) { slot in
-                VStack(spacing: 6) {
+                VStack(spacing: 4) {
                     Text(hourLabel(slot.hour))
                         .font(Theme.text(11, relativeTo: .caption2))
                         .foregroundStyle(Theme.softInk)
                     Text(emoji(for: slot.state))
-                        .font(.system(size: 22))
+                        .font(.system(size: 18))
                         .accessibilityHidden(true)
                     Text(label(for: slot.state))
                         .font(Theme.text(11, .extraBold, relativeTo: .caption2))
@@ -97,24 +96,29 @@ struct ForecastCard: View {
                 .accessibilityLabel("\(hourLabel(slot.hour)): \(label(for: slot.state))")
             }
         }
-        .padding(.vertical, 12)
-        .background(Theme.sleepBadge, in: RoundedRectangle(cornerRadius: 16))
+        .padding(.vertical, 10)
+        .background(Theme.sleepBadge, in: RoundedRectangle(cornerRadius: 14))
     }
 
-    private func warningBox(at hour: Date) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text("⚠️ FUSS WARNING")
-                .font(Theme.text(11, .black, relativeTo: .caption2))
-                .tracking(1.2)
+    /// One slim line, not a box — the compact page has no room for a
+    /// two-row banner and the message survives the squeeze.
+    private func warningLine(at hour: Date) -> some View {
+        HStack(spacing: 6) {
+            Text("⚠️")
+                .font(.system(size: 12))
+                .accessibilityHidden(true)
+            Text("cranky front around \(hourLabel(hour)) — feed and cuddle ready")
+                .font(Theme.text(12, .extraBold, relativeTo: .caption))
                 .foregroundStyle(Theme.peeCount)
-            Text("cranky front moving in around \(hourLabel(hour)) — have a feed and a cuddle ready")
-                .font(Theme.text(13, relativeTo: .footnote))
-                .foregroundStyle(Theme.softInk)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Theme.peach.opacity(0.16), in: RoundedRectangle(cornerRadius: 14))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(Theme.peach.opacity(0.16), in: RoundedRectangle(cornerRadius: 10))
         .accessibilityElement(children: .combine)
+        .accessibilityLabel("Fuss warning: cranky front around \(hourLabel(hour)). Have a feed and a cuddle ready.")
     }
 
     // MARK: - Copy
