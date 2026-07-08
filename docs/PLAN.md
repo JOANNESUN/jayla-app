@@ -351,6 +351,24 @@ Each phase is independently shippable.
   editing discoverable (whole name block stays the tap target).
   Bed hours are 7pm–6am: past-midnight sleep read as "nap" until a
   simulator screenshot caught it (regression test added).
+- [x] **Long-press undo (branch `haptics-and-notif-banner`).** First
+  user feedback ("what if I log the wrong feeding time? how do I
+  revert?") — mis-logs matter more here than in most apps because the
+  newest event is exactly what the recency-weighted engine trusts most.
+  Long-pressing the feed hero card or a poop/pee tile opens a native
+  confirmation dialog naming exactly what it's about to remove ("Remove
+  last feed? · 3:42 PM / Fed 2 min ago"); confirming deletes through
+  `ActivityRepository.delete` and, for feeds, the Rescheduler choke
+  point — so the prediction and pending reminder heal instantly. Zero
+  new visible UI (the market's post-log edit window, done the Jayla
+  way). The +/Log buttons keep winning touches on their own frames, so
+  a long-press can never double as an accidental log; VoiceOver gets
+  the same power as a custom "Undo last …" action. A third haptic voice
+  (`Haptics.undo()`, rigid) makes removal feel unlike logging. Sleep is
+  excluded — the sleep card owns its wake-undo and adjust flows.
+  Deferred: "logged earlier?" time wheel on the same sheet (undo +
+  re-log covers most of it); reset-all (delete + reinstall works —
+  storage is local-only).
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like

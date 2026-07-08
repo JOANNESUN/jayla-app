@@ -22,6 +22,9 @@ struct HomeView: View {
     @Query(sort: \ActivityEvent.timestamp, order: .reverse) private var events: [ActivityEvent]
     // The running nap being backdated via the "since 2:40 · adjust" row.
     @State private var adjustingNap: ActivityEvent?
+    // The event a long-press asked to take back — non-nil drives the
+    // "Remove last …?" confirmation dialog.
+    @State private var undoTarget: ActivityEvent?
     // True only when the user explicitly turned notifications off in
     // Settings — drives the recovery banner above the hero card.
     @State private var notificationsDenied = false
@@ -65,6 +68,25 @@ struct HomeView: View {
                 // The runaway check is anchored to the start time.
                 Task { await Rescheduler.recomputeAndReschedule() }
             }
+        }
+        // "I logged the wrong one" — long-press on the feed hero or a
+        // poop/pee tile lands here. The dialog names exactly what it's
+        // about to remove, so a mis-scroll never deletes silently.
+        .confirmationDialog(
+            undoTarget.map { "Remove last \($0.type.label.lowercased())?" } ?? "",
+            isPresented: Binding(
+                get: { undoTarget != nil },
+                set: { if !$0 { undoTarget = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: undoTarget
+        ) { event in
+            Button("Remove \(event.type.label.lowercased()) · \(Format.time(event.timestamp))",
+                   role: .destructive) {
+                remove(event)
+            }
+        } message: { event in
+            Text("\(event.type.pastTense) \(Format.humanTime(since: event.timestamp, now: .now))")
         }
     }
 
@@ -127,6 +149,9 @@ struct HomeView: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(heroAccessibilityLabel(for: nextFeed, now: now))
+            // The long-press below is invisible to VoiceOver; the undo
+            // rides along as a custom action on the info block.
+            .accessibilityAction(named: "Undo last feed") { requestUndo(.feed) }
 
             Button {
                 log(.feed)
@@ -157,6 +182,10 @@ struct HomeView: View {
         .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 28))
         .shadow(color: .black.opacity(0.08), radius: 15, y: 6)
+        // "Take the last feed back" — the Log feed button keeps winning
+        // touches on its own frame, so a long-press can never double as
+        // an accidental log.
+        .onLongPressGesture(minimumDuration: 0.5) { requestUndo(.feed) }
     }
 
     /// How far through the feed cycle we are, as a bar. Full = overdue.
@@ -292,7 +321,8 @@ struct HomeView: View {
                 TrackerCard(
                     type: type,
                     count: todayCount(for: type, now: now),
-                    onLog: { log(type) }
+                    onLog: { log(type) },
+                    onUndoRequest: { requestUndo(type) }
                 )
             }
         }
@@ -376,6 +406,26 @@ struct HomeView: View {
             Task { await Rescheduler.recomputeAndReschedule() }
         case .poop, .pee:
             repo.log(type)
+        }
+    }
+
+    /// A long-press asked to take the last log of a type back. Nothing
+    /// to undo → nothing happens; the gesture stays consequence-free.
+    private func requestUndo(_ type: ActivityType) {
+        guard let last = lastEvent(type) else { return }
+        Haptics.tap()
+        undoTarget = last
+    }
+
+    /// The confirmed undo. Sleep never comes through here — the sleep
+    /// card has its own wake-undo — so only a feed needs the reschedule
+    /// (poop/pee don't drive notifications, same as when logging them).
+    private func remove(_ event: ActivityEvent) {
+        Haptics.undo()
+        let wasFeed = event.type == .feed
+        ActivityRepository(context: modelContext).delete(event)
+        if wasFeed {
+            Task { await Rescheduler.recomputeAndReschedule() }
         }
     }
 

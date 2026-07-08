@@ -11,6 +11,8 @@
 //  Deliberately no "when": parents only care how many times the baby
 //  went today, and every event still stores its timestamp for later
 //  analysis.
+//  Long-pressing the tile (anywhere but the "+") asks to undo the
+//  latest log of that activity — correction without any visible UI.
 //
 
 import SwiftUI
@@ -21,6 +23,10 @@ struct TrackerCard: View {
     // Called when the mom taps the "+". Defaults to a no-op so previews
     // and static uses don't have to supply one.
     var onLog: () -> Void = {}
+    // Called when the mom long-presses the tile — "take the last one
+    // back". The card only signals intent; HomeView owns the
+    // confirmation and the delete.
+    var onUndoRequest: () -> Void = {}
 
     // Glyphs sit next to scaling text, so they scale too. The SVGs are
     // cropped tight (no built-in margins).
@@ -51,6 +57,11 @@ struct TrackerCard: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(type.label), \(count) today")
+            // Long-press is invisible to VoiceOver, so the undo rides
+            // along as a custom action on the count element.
+            .accessibilityAction(named: "Undo last \(type.label.lowercased())") {
+                onUndoRequest()
+            }
         }
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity)
@@ -60,6 +71,11 @@ struct TrackerCard: View {
                 .strokeBorder(type.borderColor, lineWidth: 2)
         )
         .cardShadow()
+        // The "+" keeps winning touches on its own 44pt frame, so a
+        // long-press can never double as an accidental log.
+        .onLongPressGesture(minimumDuration: 0.5) {
+            onUndoRequest()
+        }
     }
 
     // The "+" is the ONLY tap target — a whole-card button logs by

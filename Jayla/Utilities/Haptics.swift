@@ -2,7 +2,7 @@
 //  Haptics.swift
 //  Jayla
 //
-//  The two haptic voices Jayla speaks, in one place so every button
+//  The three haptic voices Jayla speaks, in one place so every button
 //  feels the same. Logging is the app's whole loop, so each log action
 //  answers with a soft physical "got it" — the Duolingo pattern: touch
 //  confirms faster than the eye can find the count tick up.
@@ -29,6 +29,15 @@ enum Haptics {
     static func success() {
         #if os(iOS)
         UINotificationFeedbackGenerator().notificationOccurred(.success)
+        #endif
+    }
+
+    /// A log was taken back (long-press undo) — a firm, rigid thud,
+    /// deliberately unlike the soft "got it" of logging, so undoing
+    /// never feels like it logged one more.
+    static func undo() {
+        #if os(iOS)
+        UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
         #endif
     }
 }
