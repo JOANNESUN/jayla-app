@@ -41,8 +41,8 @@ struct SleepCard: View {
     var onAdjust: () -> Void = {}
     var onUndoWake: () -> Void = {}
 
-    /// Under one sleep cycle — the "45-minute intruder". Experts advise
-    /// a shorter next wake window after these, so the summary says so.
+    /// Under one sleep cycle — the "45-minute intruder". The summary
+    /// calls it what it is: a catnap.
     private static let shortNap: TimeInterval = 45 * 60
 
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -167,7 +167,7 @@ struct SleepCard: View {
                         .font(Theme.display(24, relativeTo: .title2))
                         .foregroundStyle(Theme.ink)
                     if justWokeDuration < Self.shortNap {
-                        Text("short nap — her next window may be shorter")
+                        Text("just a catnap 🐱")
                             .font(Theme.text(12, relativeTo: .caption))
                             .foregroundStyle(Theme.softInk)
                     }
@@ -187,15 +187,6 @@ struct SleepCard: View {
                     Text(lastSleptText)
                         .font(Theme.text(12, relativeTo: .caption))
                         .foregroundStyle(Theme.softInk)
-                }
-                // Under ~4 months sleep pressure is fuzzy — the expert
-                // consensus is cues over clocks, so say so instead of
-                // letting the window read as gospel.
-                if nextNap != nil, ageBand != .older {
-                    Text("her sleepy cues beat the clock at this age")
-                        .font(Theme.text(12, relativeTo: .caption))
-                        .foregroundStyle(Theme.softInk)
-                        .italic()
                 }
             }
             .accessibilityElement(children: .ignore)
@@ -310,7 +301,7 @@ struct SleepCard: View {
         if let justWokeDuration {
             label += "She's awake, slept \(Format.duration(justWokeDuration))."
             if justWokeDuration < Self.shortNap {
-                label += " Short nap, her next window may be shorter."
+                label += " Just a catnap."
             }
             label += " "
         }
