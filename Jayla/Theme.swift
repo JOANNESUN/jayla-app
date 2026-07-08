@@ -69,9 +69,10 @@ enum Theme {
     // block against the cream page — Joanne's call.
     static let chartTrack = Color(hex: "EEF1F5")
 
-    // The pinned header bar on home/history — a soft blush pink Joanne
-    // supplied as a swatch after finding the coral accent too strong.
-    static let headerBar = Color(hex: "F8DCD2")
+    // The pinned header bar on home/history — the app icon's marigold
+    // background (sampled from AppIcon.png), so the bar reads as the
+    // app's brand color. Coral and blush both auditioned first.
+    static let headerBar = Color(hex: "FDC619")
 
     // MARK: - Fonts (Baloo 2 display + Nunito body, both SIL OFL)
 
