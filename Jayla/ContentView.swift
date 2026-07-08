@@ -15,11 +15,12 @@ struct ContentView: View {
     @Query private var profiles: [BabyProfile]
     @State private var tab = ContentView.initialTab
 
-    // Dev-only: JAYLA_OPEN_HISTORY=1 launches straight into the history
-    // tab so headless simulator runs can read its console dump.
+    // Dev-only: JAYLA_OPEN_HISTORY=1 (or =month) launches straight into
+    // the history tab so headless simulator runs can read its console
+    // dump and screenshot either page.
     private static var initialTab: Int {
         #if DEBUG
-        ProcessInfo.processInfo.environment["JAYLA_OPEN_HISTORY"] == "1" ? 1 : 0
+        ProcessInfo.processInfo.environment["JAYLA_OPEN_HISTORY"] != nil ? 1 : 0
         #else
         0
         #endif

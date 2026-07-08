@@ -2,11 +2,12 @@
 //  PatternChartView.swift
 //  Jayla
 //
-//  The history page's pattern chart (an actogram): one column per day,
-//  midnight at the top, midnight at the bottom. Sleep draws as blue
-//  ribbons, feeds as pink dots, pee/poop as their daily counts under
-//  the column. Rhythm is the payoff — as naps consolidate, the ribbons
-//  line up across columns and you can *see* the schedule forming.
+//  The history page's sleep chart (an actogram): one column per day,
+//  midnight at the top, midnight at the bottom, sleep drawn as blue
+//  ribbons. Sleep only, by Joanne's call — everything else is just a
+//  number in the day card below. Rhythm is the payoff: as naps
+//  consolidate, the ribbons line up across columns and you can *see*
+//  the schedule forming.
 //
 //  Custom-drawn (not Swift Charts): the whole thing is one y-mapping —
 //  y = height · seconds-since-midnight / day-length — and columns need
@@ -19,7 +20,6 @@ import SwiftUI
 struct PatternChartView: View {
     /// One per calendar day, oldest first (DayLog.build's output).
     let days: [DaySummary]
-    @Binding var selectedDay: Date
 
     /// Height of the 24h track.
     private static let trackHeight: CGFloat = 220
@@ -27,7 +27,7 @@ struct PatternChartView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("HER RHYTHM")
+            Text("SLEEP RHYTHM · LAST 30 DAYS")
                 .font(Theme.text(12, .black, relativeTo: .caption))
                 .tracking(1.5)
                 .foregroundStyle(Theme.softInk)
@@ -38,10 +38,9 @@ struct PatternChartView: View {
                     HStack(alignment: .top, spacing: 8) {
                         ForEach(days) { day in
                             DayColumn(summary: day,
-                                      isSelected: day.day == selectedDay,
+                                      isToday: day.id == days.last?.id,
                                       trackHeight: Self.trackHeight,
                                       width: Self.columnWidth)
-                                .onTapGesture { selectedDay = day.day }
                         }
                     }
                 }
@@ -77,7 +76,7 @@ struct PatternChartView: View {
 
 private struct DayColumn: View {
     let summary: DaySummary
-    let isSelected: Bool
+    let isToday: Bool
     let trackHeight: CGFloat
     let width: CGFloat
 
@@ -93,33 +92,20 @@ private struct DayColumn: View {
     var body: some View {
         VStack(spacing: 5) {
             track
-            countBadges
             labels
         }
         .frame(width: width)
-        .contentShape(Rectangle())
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(accessibilityText)
-        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 
     private var track: some View {
         ZStack(alignment: .top) {
             RoundedRectangle(cornerRadius: 8)
                 .fill(Theme.background)
-            if isSelected {
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Theme.accent, lineWidth: 2)
-            }
 
             ForEach(summary.sleepSegments) { segment in
                 ribbon(for: segment)
-            }
-            ForEach(summary.feedTimes, id: \.self) { feed in
-                Circle()
-                    .fill(Theme.feedInk)
-                    .frame(width: 5, height: 5)
-                    .offset(y: y(feed) - 2.5)
             }
         }
         .frame(width: width, height: trackHeight)
@@ -145,23 +131,6 @@ private struct DayColumn: View {
         return trackHeight * CGFloat(min(max(fraction, 0), 1))
     }
 
-    /// The daily pee/poop counts, same color coding as the home tiles.
-    /// Fixed height keeps columns aligned when a day has none.
-    private var countBadges: some View {
-        HStack(spacing: 4) {
-            if summary.peeCount > 0 {
-                Text("\(summary.peeCount)")
-                    .foregroundStyle(Theme.peeCount)
-            }
-            if summary.poopCount > 0 {
-                Text("\(summary.poopCount)")
-                    .foregroundStyle(Theme.poopInk)
-            }
-        }
-        .font(Theme.text(10, .extraBold, relativeTo: .caption2))
-        .frame(height: 12)
-    }
-
     private var labels: some View {
         VStack(spacing: 0) {
             Text(dayStart.formatted(.dateTime.weekday(.abbreviated)))
@@ -169,19 +138,15 @@ private struct DayColumn: View {
                 .foregroundStyle(Theme.softInk)
             Text(dayStart.formatted(.dateTime.day()))
                 .font(Theme.display(13, relativeTo: .caption))
-                .foregroundStyle(isSelected ? Theme.accent : Theme.ink)
+                .foregroundStyle(isToday ? Theme.accent : Theme.ink)
         }
     }
 
     private var accessibilityText: String {
-        var parts = [dayStart.formatted(date: .abbreviated, time: .omitted)]
-        parts.append(summary.sleepSegments.isEmpty
+        let slept = summary.sleepSegments.isEmpty
             ? "no sleep logged"
-            : "slept \(Format.duration(summary.sleepTotal))")
-        parts.append("\(summary.feedCount) feeds")
-        parts.append("\(summary.peeCount) pee")
-        parts.append("\(summary.poopCount) poop")
-        return parts.joined(separator: ", ")
+            : "slept \(Format.duration(summary.sleepTotal))"
+        return "\(dayStart.formatted(date: .abbreviated, time: .omitted)), \(slept)"
     }
 }
 
@@ -189,8 +154,6 @@ private struct DayColumn: View {
 
 #Preview {
     struct ChartPreview: View {
-        @State private var selected = Calendar.current.startOfDay(for: .now)
-
         var body: some View {
             let now = Date.now
             let cal = Calendar.current
@@ -228,8 +191,7 @@ private struct DayColumn: View {
                              durationSeconds: nil),
             ]
             PatternChartView(days: DayLog.build(events: events, now: now,
-                                                daysBack: 14),
-                             selectedDay: $selected)
+                                                daysBack: 14))
                 .padding()
                 .background(Theme.background)
         }

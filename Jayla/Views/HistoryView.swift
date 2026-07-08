@@ -2,16 +2,18 @@
 //  HistoryView.swift
 //  Jayla
 //
-//  The history page: the pattern chart on top (30 days of columns),
-//  then whatever day is selected spelled out below — a totals row and
-//  the day's events in order. One page answers the three questions
-//  parents actually bring to history: is a rhythm forming (chart),
-//  what exactly happened (list), how much/how many (totals — wet
-//  diapers per day is the number the pediatrician asks for).
+//  The history page, to Joanne's design: a Today/Month toggle, the
+//  sleep picture always on top, and feed/poop/pee as plain aggregate
+//  cards — numbers, never event-by-event noise.
 //
-//  The list is also the correction surface: swipe a row to delete a
-//  mis-log. Deleting a feed or sleep reschedules notifications, same
-//  contract as logging one.
+//  Today  → today's sleep total + a horizontal 24h strip, the day's
+//           sleeps as rows (swipe to delete a mis-log; feed/sleep
+//           deletes reschedule through the same choke point as
+//           logging), then count-today cards with "last at" times.
+//  Month  → the 30-day rhythm actogram, the 4-week sleep trend (avg,
+//           delta, daily line, hedged narrative), then per-day average
+//           cards. Wet diapers per day is the number the pediatrician
+//           asks for.
 //
 
 import SwiftUI
@@ -20,9 +22,22 @@ import SwiftData
 struct HistoryView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var events: [ActivityEvent]
-    @State private var selectedDay = Calendar.current.startOfDay(for: .now)
+    @State private var page = HistoryView.initialPage
 
-    /// The chart shows this many days.
+    private enum Page { case today, month }
+
+    // Dev-only: JAYLA_OPEN_HISTORY=month starts on the month page for
+    // headless screenshots.
+    private static var initialPage: Page {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["JAYLA_OPEN_HISTORY"] == "month"
+            ? .month : .today
+        #else
+        .today
+        #endif
+    }
+
+    /// The month page (and trend math) covers this many days.
     private static let daysBack = 30
 
     init() {
@@ -40,17 +55,13 @@ struct HistoryView: View {
         ZStack {
             Theme.background.ignoresSafeArea()
 
-            // Same clock as HomeView: everyMinute keeps the open nap's
-            // ribbon growing and rolls the window at midnight; logging
-            // and deleting update through @Query.
+            // Same clock as HomeView: everyMinute keeps the open nap
+            // growing and rolls the day at midnight; logging and
+            // deleting update through @Query.
             TimelineView(.everyMinute) { timeline in
                 let now = timeline.date
                 let days = DayLog.build(events: dayLogEvents(),
                                         now: now, daysBack: Self.daysBack)
-                let summary = days.first { $0.day == selectedDay }
-                let dayEvents = events.filter {
-                    Calendar.current.isDate($0.timestamp, inSameDayAs: selectedDay)
-                }
 
                 List {
                     Group {
@@ -59,38 +70,18 @@ struct HistoryView: View {
                             .foregroundStyle(Theme.ink)
                             .padding(.top, 8)
 
-                        PatternChartView(days: days, selectedDay: $selectedDay)
-                            .padding(.bottom, 6)
+                        pageToggle
 
-                        Text(dayTitle(now: now))
-                            .font(Theme.display(18, relativeTo: .title3))
-                            .foregroundStyle(Theme.ink)
-
-                        if let summary, !summary.isEmpty {
-                            totalsRow(summary)
-                        }
-
-                        if dayEvents.isEmpty {
-                            Text("nothing logged this day")
-                                .font(Theme.text(14, relativeTo: .subheadline))
-                                .foregroundStyle(Theme.softInk)
-                                .padding(.vertical, 8)
+                        if page == .today {
+                            todayPage(days: days, now: now)
                         } else {
-                            ForEach(dayEvents) { event in
-                                eventRow(event, now: now)
-                            }
-                            .onDelete { delete(at: $0, in: dayEvents) }
-                        }
-
-                        if let trends = DayLog.trends(days: days) {
-                            trendsCard(trends)
-                                .padding(.top, 10)
+                            monthPage(days: days)
                         }
                     }
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
-                    .listRowInsets(EdgeInsets(top: 4, leading: 20,
-                                              bottom: 4, trailing: 20))
+                    .listRowInsets(EdgeInsets(top: 5, leading: 20,
+                                              bottom: 5, trailing: 20))
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
@@ -101,107 +92,89 @@ struct HistoryView: View {
         }
     }
 
-    // MARK: - Day detail
+    // MARK: - Toggle
 
-    private func dayTitle(now: Date) -> String {
-        let calendar = Calendar.current
-        if calendar.isDate(selectedDay, inSameDayAs: now) { return "Today" }
-        if let yesterday = calendar.date(byAdding: .day, value: -1,
-                                         to: calendar.startOfDay(for: now)),
-           selectedDay == yesterday { return "Yesterday" }
-        return selectedDay.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
-    }
-
-    /// "12h 40m · 8 · 6 · 2" behind the day's four icons — the numbers
-    /// a pediatrician visit runs on.
-    private func totalsRow(_ summary: DaySummary) -> some View {
-        HStack(spacing: 18) {
-            stat(icon: ActivityType.sleep.mascot,
-                 value: summary.sleepSegments.isEmpty
-                     ? "—" : Format.duration(summary.sleepTotal),
-                 color: Theme.sleepInk)
-            stat(icon: ActivityType.feed.mascot,
-                 value: "\(summary.feedCount)", color: Theme.feedInk)
-            stat(icon: ActivityType.pee.icon,
-                 value: "\(summary.peeCount)", color: Theme.peeCount)
-            stat(icon: ActivityType.poop.icon,
-                 value: "\(summary.poopCount)", color: Theme.poopInk)
-            Spacer()
+    private var pageToggle: some View {
+        HStack(spacing: 0) {
+            segment("Today", .today)
+            segment("Month", .month)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 14)
-        .background(.white, in: RoundedRectangle(cornerRadius: 22))
-        .cardShadow()
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(totalsAccessibilityLabel(summary))
+        .padding(4)
+        .background(Theme.softInk.opacity(0.12),
+                    in: RoundedRectangle(cornerRadius: 18))
     }
 
-    private func stat(icon: String, value: String, color: Color) -> some View {
-        HStack(spacing: 6) {
-            Image(icon)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 24, height: 24)
-            Text(value)
+    private func segment(_ title: String, _ target: Page) -> some View {
+        let selected = page == target
+        return Button {
+            withAnimation(.snappy(duration: 0.2)) { page = target }
+        } label: {
+            Text(title)
                 .font(Theme.display(16, relativeTo: .headline))
-                .foregroundStyle(color)
+                .foregroundStyle(selected ? Theme.ink : Theme.softInk)
+                .frame(maxWidth: .infinity, minHeight: 40)
+                .background {
+                    if selected {
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(.white)
+                            .cardShadow()
+                    }
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    // MARK: - Today page
+
+    @ViewBuilder
+    private func todayPage(days: [DaySummary], now: Date) -> some View {
+        let today = days.last
+        let sleeps = todaySleeps(now: now)
+
+        if let today {
+            todaySleepCard(today, now: now)
+        }
+
+        ForEach(sleeps) { event in
+            sleepRow(event, now: now)
+        }
+        .onDelete { deleteSleeps(at: $0, in: sleeps) }
+
+        if let today {
+            aggregateCard(.feed, headline: "\(today.feedCount)",
+                          unit: "today",
+                          subline: lastLine(.feed, now: now))
+            aggregateCard(.poop, headline: "\(today.poopCount)",
+                          unit: "today",
+                          subline: lastLine(.poop, now: now))
+            aggregateCard(.pee, headline: "\(today.peeCount)",
+                          unit: "today",
+                          subline: lastLine(.pee, now: now))
         }
     }
 
-    private func totalsAccessibilityLabel(_ summary: DaySummary) -> String {
-        let slept = summary.sleepSegments.isEmpty
-            ? "no sleep logged" : "slept \(Format.duration(summary.sleepTotal))"
-        return "\(slept), \(summary.feedCount) feeds, "
-            + "\(summary.peeCount) pee, \(summary.poopCount) poop"
-    }
-
-    // MARK: - Trends
-
-    /// The insights layer, from Joanne's comp: weekly sleep average +
-    /// direction, four week bars, a gentle narrative line, and per-day
-    /// frequencies. Frequencies only — Jayla logs moments, not volumes.
-    private func trendsCard(_ trends: TrendSummary) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("HER MONTH")
+    /// Sleep leads: the total so far and the day drawn as one 24h strip.
+    private func todaySleepCard(_ today: DaySummary, now: Date) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("SLEEP")
                 .font(Theme.text(12, .black, relativeTo: .caption))
                 .tracking(1.5)
-                .foregroundStyle(Theme.softInk)
+                .foregroundStyle(Theme.sleepInk)
 
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(trends.avgSleepPerDay > 0
-                    ? Format.duration(trends.avgSleepPerDay) : "—")
-                    .font(Theme.display(30, relativeTo: .title))
+                Text(today.sleepSegments.isEmpty
+                    ? "—" : Format.duration(today.sleepTotal))
+                    .font(Theme.display(34, relativeTo: .largeTitle))
                     .foregroundStyle(Theme.sleepInk)
-                if let arrow = directionArrow(trends.direction) {
-                    Image(systemName: arrow)
-                        .font(.system(.subheadline, weight: .heavy))
-                        .foregroundStyle(Theme.sleepInk)
-                }
-                Text("sleep a day this week")
+                Text(today.sleepSegments.contains(where: \.isOpen)
+                    ? "so far — still napping" : "slept today")
                     .font(Theme.text(13, relativeTo: .footnote))
                     .foregroundStyle(Theme.softInk)
             }
 
-            weekBars(trends.weeks)
-
-            Text(narrative(for: trends))
-                .font(Theme.text(12, relativeTo: .caption))
-                .foregroundStyle(Theme.softInk)
-                .italic()
-
-            Rectangle()
-                .fill(Theme.background)
-                .frame(height: 2)
-
-            HStack(spacing: 18) {
-                stat(icon: ActivityType.feed.mascot,
-                     value: perDay(trends.feedsPerDay), color: Theme.feedInk)
-                stat(icon: ActivityType.pee.icon,
-                     value: perDay(trends.peePerDay), color: Theme.peeCount)
-                stat(icon: ActivityType.poop.icon,
-                     value: perDay(trends.poopPerDay), color: Theme.poopInk)
-                Spacer()
-            }
+            dayStrip(today)
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -209,97 +182,64 @@ struct HistoryView: View {
         .clipShape(RoundedRectangle(cornerRadius: 28))
         .cardShadow()
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(trendsAccessibilityLabel(trends))
+        .accessibilityLabel(today.sleepSegments.isEmpty
+            ? "Sleep. Nothing logged yet today."
+            : "Slept \(Format.duration(today.sleepTotal)) today.")
     }
 
-    /// One bar per week (oldest left), height ∝ that week's average
-    /// sleep. The current week draws solid; earlier weeks fade back.
-    private func weekBars(_ weeks: [WeekStat]) -> some View {
-        let maxSleep = max(weeks.map(\.avgSleep).max() ?? 1, 1)
-        return HStack(alignment: .bottom, spacing: 12) {
-            ForEach(weeks) { week in
-                VStack(spacing: 4) {
-                    Capsule()
-                        .fill(Theme.sleepInk.opacity(
-                            week.index == weeks.count - 1 ? 1 : 0.35))
-                        .frame(width: 26,
-                               height: max(4, 56 * week.avgSleep / maxSleep))
-                    Text(weekLabel(week.index, of: weeks.count))
-                        .font(Theme.text(10, relativeTo: .caption2))
-                        .foregroundStyle(Theme.softInk)
+    /// Today as a horizontal 24h bar — the actogram column, laid down.
+    private func dayStrip(_ day: DaySummary) -> some View {
+        let dayLength = Self.dayLength(of: day.day)
+        return VStack(spacing: 4) {
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 7)
+                        .fill(Theme.background)
+                    ForEach(day.sleepSegments) { segment in
+                        let from = geo.size.width
+                            * segment.start.timeIntervalSince(day.day) / dayLength
+                        let width = geo.size.width
+                            * segment.duration / dayLength
+                        RoundedRectangle(cornerRadius: 5)
+                            .fill(segment.isOpen
+                                ? AnyShapeStyle(LinearGradient(
+                                    colors: [Theme.sleepInk,
+                                             Theme.sleepInk.opacity(0.35)],
+                                    startPoint: .leading, endPoint: .trailing))
+                                : AnyShapeStyle(Theme.sleepInk))
+                            .frame(width: max(4, width), height: 16)
+                            .offset(x: from)
+                    }
                 }
             }
+            .frame(height: 20)
+
+            HStack {
+                Text("12a"); Spacer(); Text("6a"); Spacer()
+                Text("12p"); Spacer(); Text("6p"); Spacer(); Text("12a")
+            }
+            .font(Theme.text(9, relativeTo: .caption2))
+            .foregroundStyle(Theme.softInk.opacity(0.8))
         }
-        .frame(height: 76, alignment: .bottom)
+        .accessibilityHidden(true)
     }
 
-    private func weekLabel(_ index: Int, of count: Int) -> String {
-        index == count - 1 ? "now" : "\(count - 1 - index)w"
-    }
-
-    private func directionArrow(_ direction: TrendSummary.Direction) -> String? {
-        switch direction {
-        case .up:      "arrow.up.right"
-        case .down:    "arrow.down.right"
-        case .steady:  "arrow.right"
-        case .unknown: nil
-        }
-    }
-
-    /// The interpretation line — descriptive and hedged, never a
-    /// verdict. Same voice as "her sleepy cues beat the clock".
-    private func narrative(for trends: TrendSummary) -> String {
-        switch trends.direction {
-        case .up where trends.napsConsolidating:
-            "sleep is lengthening and naps are consolidating"
-        case .up:
-            "she's sleeping a little more than last week"
-        case .steady where trends.napsConsolidating:
-            "naps are consolidating into fewer, longer stretches"
-        case .steady:
-            "her rhythm is holding steady"
-        case .down:
-            "a little less sleep than last week — spurts and leaps do this"
-        case .unknown:
-            "still learning her weekly rhythm"
-        }
-    }
-
-    /// "5.3 a day" — one decimal, trailing .0 dropped.
-    private func perDay(_ value: Double) -> String {
-        let rounded = (value * 10).rounded() / 10
-        let text = rounded == rounded.rounded()
-            ? String(Int(rounded)) : String(format: "%.1f", rounded)
-        return "\(text) a day"
-    }
-
-    private func trendsAccessibilityLabel(_ trends: TrendSummary) -> String {
-        var label = trends.avgSleepPerDay > 0
-            ? "This week she sleeps \(Format.duration(trends.avgSleepPerDay)) a day. "
-            : ""
-        label += narrative(for: trends) + ". "
-        label += "\(perDay(trends.feedsPerDay)) feeds, "
-            + "\(perDay(trends.peePerDay)) pees, \(perDay(trends.poopPerDay)) poops."
-        return label
-    }
-
-    private func eventRow(_ event: ActivityEvent, now: Date) -> some View {
+    private func sleepRow(_ event: ActivityEvent, now: Date) -> some View {
         let open = isOpenNap(event, now: now)
         return HStack(spacing: 12) {
-            Image(iconAsset(event.type))
+            Image(ActivityType.sleep.mascot)
                 .resizable()
                 .scaledToFit()
                 .frame(width: 26, height: 26)
 
-            Text(open ? "Sleeping" : event.type.pastTense)
+            Text(open ? "Sleeping" : "Slept")
                 .font(Theme.text(15, relativeTo: .subheadline))
                 .foregroundStyle(Theme.ink)
 
-            if let detail = sleepDetail(event, open: open) {
-                Text(detail)
-                    .font(Theme.text(13, relativeTo: .footnote))
-                    .foregroundStyle(Theme.softInk)
-            }
+            Text(open ? "still going"
+                : event.durationSeconds.map { Format.duration($0) } ?? "")
+                .font(Theme.text(13, relativeTo: .footnote))
+                .foregroundStyle(Theme.softInk)
 
             Spacer()
 
@@ -313,18 +253,268 @@ struct HistoryView: View {
         .accessibilityElement(children: .combine)
     }
 
-    /// "1h 5m" on completed sleeps, "still going" on the open nap,
-    /// nothing on moments (and on legacy sleeps that never got one).
-    private func sleepDetail(_ event: ActivityEvent, open: Bool) -> String? {
-        guard event.type == .sleep else { return nil }
-        if open { return "still going" }
-        return event.durationSeconds.map { Format.duration($0) }
+    /// "last 2:30 pm" — or an honest blank early in the day.
+    private func lastLine(_ type: ActivityType, now: Date) -> String {
+        let last = events.last {
+            $0.typeRaw == type.rawValue
+                && Calendar.current.isDate($0.timestamp, inSameDayAs: now)
+        }
+        guard let last else { return "not yet today" }
+        return "last \(Format.time(last.timestamp))"
     }
 
-    private func isOpenNap(_ event: ActivityEvent, now: Date) -> Bool {
-        event.type == .sleep && event.durationSeconds == nil
-            && now.timeIntervalSince(event.timestamp) < DayLog.openNapGuard
-            && event.timestamp <= now
+    // MARK: - Month page
+
+    @ViewBuilder
+    private func monthPage(days: [DaySummary]) -> some View {
+        PatternChartView(days: days)
+
+        // Today is still being written — a half-day would drag the
+        // line and the average down, so the trend reads completed
+        // days only.
+        let complete = Array(days.dropLast())
+        if let trends = DayLog.trends(days: complete) {
+            trendCard(trends, days: complete)
+        }
+
+        let tracked = max(days.filter { !$0.isEmpty }.count, 1)
+        let feeds = days.reduce(0) { $0 + $1.feedCount }
+        let poops = days.reduce(0) { $0 + $1.poopCount }
+        let pees = days.reduce(0) { $0 + $1.peeCount }
+        aggregateCard(.feed, headline: perDay(feeds, over: tracked),
+                      unit: "/ day", subline: "\(feeds) this month")
+        aggregateCard(.poop, headline: perDay(poops, over: tracked),
+                      unit: "/ day", subline: "\(poops) this month")
+        aggregateCard(.pee, headline: perDay(pees, over: tracked),
+                      unit: "/ day", subline: "\(pees) this month")
+    }
+
+    /// The 4-week sleep trend: average, week-over-week delta, the
+    /// daily line, and the interpretation chip.
+    private func trendCard(_ trends: TrendSummary, days: [DaySummary]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("SLEEP TREND · LAST 4 WEEKS")
+                .font(Theme.text(12, .black, relativeTo: .caption))
+                .tracking(1.5)
+                .foregroundStyle(Theme.softInk)
+
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(trends.avgSleepPerDay > 0
+                    ? Format.duration(trends.avgSleepPerDay) : "—")
+                    .font(Theme.display(30, relativeTo: .title))
+                    .foregroundStyle(Theme.sleepInk)
+                deltaBadge(trends)
+                Text("avg / day\(trendWord(trends.direction))")
+                    .font(Theme.text(13, relativeTo: .footnote))
+                    .foregroundStyle(Theme.softInk)
+            }
+
+            sleepLine(days: days)
+
+            Text(narrative(for: trends))
+                .font(Theme.text(13, .extraBold, relativeTo: .footnote))
+                .foregroundStyle(Theme.cobalt)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.sleepBadge,
+                            in: RoundedRectangle(cornerRadius: 12))
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 28))
+        .cardShadow()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(trendAccessibilityLabel(trends))
+    }
+
+    /// "▲ 40m" week over week — only when the direction is earned.
+    @ViewBuilder
+    private func deltaBadge(_ trends: TrendSummary) -> some View {
+        if trends.weeks.count >= 2,
+           trends.direction == .up || trends.direction == .down {
+            let delta = trends.weeks[trends.weeks.count - 1].avgSleep
+                - trends.weeks[trends.weeks.count - 2].avgSleep
+            HStack(spacing: 3) {
+                Image(systemName: delta > 0
+                    ? "arrowtriangle.up.fill" : "arrowtriangle.down.fill")
+                    .font(.system(size: 10, weight: .bold))
+                Text(Format.duration(abs(delta)))
+                    .font(Theme.text(13, .extraBold, relativeTo: .footnote))
+            }
+            .foregroundStyle(delta > 0 ? Theme.emerald : Theme.softInk)
+        }
+    }
+
+    private func trendWord(_ direction: TrendSummary.Direction) -> String {
+        switch direction {
+        case .up:      " · trending up"
+        case .down:    " · easing off"
+        case .steady:  " · steady"
+        case .unknown: ""
+        }
+    }
+
+    /// Daily sleep totals as one line across the month, days without
+    /// sleep data skipped rather than drawn as false zeros.
+    private func sleepLine(days: [DaySummary]) -> some View {
+        let points: [(index: Int, total: TimeInterval)] = days.enumerated()
+            .filter { !$0.element.sleepSegments.isEmpty }
+            .map { ($0.offset, $0.element.sleepTotal) }
+        let maxTotal = max(points.map(\.total).max() ?? 1, 1)
+        let span = Double(max(days.count - 1, 1))
+
+        return VStack(spacing: 4) {
+            GeometryReader { geo in
+                let w = geo.size.width, h = geo.size.height
+                let at = { (p: (index: Int, total: TimeInterval)) in
+                    CGPoint(x: w * Double(p.index) / span,
+                            y: h * (1 - 0.9 * p.total / maxTotal))
+                }
+                if points.count >= 2 {
+                    Path { path in
+                        path.move(to: at(points[0]))
+                        for point in points.dropFirst() {
+                            path.addLine(to: at(point))
+                        }
+                        path.addLine(to: CGPoint(x: at(points[points.count - 1]).x, y: h))
+                        path.addLine(to: CGPoint(x: at(points[0]).x, y: h))
+                        path.closeSubpath()
+                    }
+                    .fill(LinearGradient(
+                        colors: [Theme.sleepBadge, Theme.sleepBadge.opacity(0)],
+                        startPoint: .top, endPoint: .bottom))
+
+                    Path { path in
+                        path.move(to: at(points[0]))
+                        for point in points.dropFirst() {
+                            path.addLine(to: at(point))
+                        }
+                    }
+                    .stroke(Theme.sleepInk,
+                            style: StrokeStyle(lineWidth: 2.5,
+                                               lineCap: .round,
+                                               lineJoin: .round))
+
+                    let last = at(points[points.count - 1])
+                    Circle()
+                        .fill(.white)
+                        .stroke(Theme.sleepInk, lineWidth: 2.5)
+                        .frame(width: 9, height: 9)
+                        .position(last)
+                } else {
+                    Text("a few more days of naps will draw the trend here")
+                        .font(Theme.text(12, relativeTo: .caption))
+                        .foregroundStyle(Theme.softInk)
+                        .frame(width: w, height: h)
+                }
+            }
+            .frame(height: 88)
+
+            HStack {
+                Text("Wk 1"); Spacer(); Text("Wk 2"); Spacer()
+                Text("Wk 3"); Spacer(); Text("Wk 4")
+            }
+            .font(Theme.text(10, relativeTo: .caption2))
+            .foregroundStyle(Theme.softInk.opacity(0.8))
+        }
+        .accessibilityHidden(true)
+    }
+
+    // MARK: - Aggregate cards
+
+    /// One activity, one number — Joanne's call: everything that isn't
+    /// sleep is just an aggregate. Icon chip, name, context line, and
+    /// the number on the right.
+    private func aggregateCard(_ type: ActivityType, headline: String,
+                               unit: String, subline: String) -> some View {
+        HStack(spacing: 14) {
+            RoundedRectangle(cornerRadius: 14)
+                .fill(chipColor(type))
+                .frame(width: 46, height: 46)
+                .overlay(
+                    Image(iconAsset(type))
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 28, height: 28)
+                )
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(type.label)
+                    .font(Theme.display(16, relativeTo: .headline))
+                    .foregroundStyle(Theme.ink)
+                Text(subline)
+                    .font(Theme.text(12, relativeTo: .caption))
+                    .foregroundStyle(Theme.softInk)
+            }
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 0) {
+                Text(headline)
+                    .font(Theme.display(24, relativeTo: .title2))
+                    .foregroundStyle(type.countColor)
+                Text(unit)
+                    .font(Theme.text(11, relativeTo: .caption2))
+                    .foregroundStyle(Theme.softInk)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(.white, in: RoundedRectangle(cornerRadius: 22))
+        .cardShadow()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(type.label), \(headline) \(unit), \(subline)")
+    }
+
+    private func chipColor(_ type: ActivityType) -> Color {
+        switch type {
+        case .feed:  Theme.feedBadge
+        case .sleep: Theme.sleepBadge
+        case .poop:  Theme.poopBorder.opacity(0.3)
+        case .pee:   Theme.peeBorder.opacity(0.3)
+        }
+    }
+
+    private func iconAsset(_ type: ActivityType) -> String {
+        switch type {
+        case .feed, .sleep: type.mascot
+        case .poop, .pee:   type.icon
+        }
+    }
+
+    // MARK: - Copy
+
+    /// The interpretation line — descriptive and hedged, never a
+    /// verdict. Same voice as "her sleepy cues beat the clock".
+    private func narrative(for trends: TrendSummary) -> String {
+        switch trends.direction {
+        case .up where trends.napsConsolidating:
+            "Sleep is lengthening and naps are consolidating."
+        case .up:
+            "She's sleeping a little more than last week."
+        case .steady where trends.napsConsolidating:
+            "Naps are consolidating into fewer, longer stretches."
+        case .steady:
+            "Her rhythm is holding steady."
+        case .down:
+            "A little less sleep than last week — spurts and leaps do this."
+        case .unknown:
+            "Still learning her weekly rhythm."
+        }
+    }
+
+    /// "5.3" — always one decimal, matching the averages cards.
+    private func perDay(_ total: Int, over days: Int) -> String {
+        String(format: "%.1f", Double(total) / Double(days))
+    }
+
+    private func trendAccessibilityLabel(_ trends: TrendSummary) -> String {
+        let avg = trends.avgSleepPerDay > 0
+            ? "She sleeps \(Format.duration(trends.avgSleepPerDay)) a day this week. "
+            : ""
+        return avg + narrative(for: trends)
     }
 
     // MARK: - Data
@@ -338,27 +528,34 @@ struct HistoryView: View {
         }
     }
 
-    private func delete(at offsets: IndexSet, in dayEvents: [ActivityEvent]) {
-        let repo = ActivityRepository(context: modelContext)
-        var needsReschedule = false
-        for index in offsets {
-            let event = dayEvents[index]
-            needsReschedule = needsReschedule
-                || event.type == .feed || event.type == .sleep
-            repo.delete(event)
-        }
-        // Same choke point as logging: feed/sleep changes move the
-        // predictions, so the pending reminders must move too.
-        if needsReschedule {
-            Task { await Rescheduler.recomputeAndReschedule() }
+    private func todaySleeps(now: Date) -> [ActivityEvent] {
+        events.filter {
+            $0.type == .sleep
+                && Calendar.current.isDate($0.timestamp, inSameDayAs: now)
         }
     }
 
-    private func iconAsset(_ type: ActivityType) -> String {
-        switch type {
-        case .feed, .sleep: type.mascot
-        case .poop, .pee:   type.icon
+    private func isOpenNap(_ event: ActivityEvent, now: Date) -> Bool {
+        event.type == .sleep && event.durationSeconds == nil
+            && now.timeIntervalSince(event.timestamp) < DayLog.openNapGuard
+            && event.timestamp <= now
+    }
+
+    private func deleteSleeps(at offsets: IndexSet, in sleeps: [ActivityEvent]) {
+        let repo = ActivityRepository(context: modelContext)
+        for index in offsets {
+            repo.delete(sleeps[index])
         }
+        // Same choke point as logging: sleep changes move the
+        // predictions, so the pending reminders must move too.
+        Task { await Rescheduler.recomputeAndReschedule() }
+    }
+
+    /// Real length of a day — 23h/25h on DST days.
+    private static func dayLength(of dayStart: Date) -> TimeInterval {
+        let next = Calendar.current.date(byAdding: .day, value: 1, to: dayStart)
+            ?? dayStart.addingTimeInterval(24 * 3_600)
+        return next.timeIntervalSince(dayStart)
     }
 
     #if DEBUG

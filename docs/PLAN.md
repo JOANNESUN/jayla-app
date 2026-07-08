@@ -293,17 +293,26 @@ Each phase is independently shippable.
   open nap draws as a growing gradient ribbon, counted live. Navigation
   is a minimal 2-tab TabView (Today / History) in ContentView. Shared
   time strings extracted to `Utilities/Formatters.swift`.
-  *Trends module (from Joanne's design comp):* a "Her month" card under
-  the day detail — latest week's average sleep/day with a direction
-  arrow (±5% band, needs ≥3 sleep-days in both weeks to claim a
-  direction), four weekly bars, a hedged narrative line ("sleep is
-  lengthening and naps are consolidating" — descriptive, never a
-  verdict, no "on track" claims), and per-day frequencies for
-  feed/pee/poop over the last 7 tracked days. Frequencies only by
-  Joanne's call — Jayla logs moments, not volumes, so no ml/day.
-  Pure math in `DayLog.trends`, covered by run-daylog.sh.
-  Deferred to iteration 2: scroll-back past 30 days, editing times
-  from history.
+  *Restructured to Joanne's design comp (July 8):* the page is now a
+  **Today / Month toggle** (custom segmented pill), sleep always on
+  top, feed/poop/pee only ever aggregates — no per-event rows.
+  **Today** = sleep card (total so far, live; horizontal 24h strip —
+  the actogram column laid down) + the day's sleeps as swipe-deletable
+  rows + count-today cards with "last 2:30 pm" sublines. **Month** =
+  the 30-day actogram (sleep ribbons only now; feed dots and
+  per-column counts removed, tap-select removed) + a 4-week sleep
+  trend card (avg/day, ▲/▼ week-over-week delta — only claimed with
+  ≥3 sleep-days in both weeks, ±5% steady band; daily line chart that
+  skips no-data days AND excludes today since a half-day would drag
+  the line down; hedged narrative chip — descriptive, never a verdict,
+  no "on track" claims) + per-day average cards ("5.7 / day · 171 this
+  month"). Frequencies only by Joanne's call — Jayla logs moments, not
+  volumes, so no ml/day. Trend math is pure `DayLog.trends`, covered
+  by run-daylog.sh. Trade-off accepted: past-day drill-in and
+  moment-event deletion from history are gone (sleep rows remain
+  deletable); DEBUG env `JAYLA_OPEN_HISTORY=1|month` opens either page
+  headlessly. Deferred: scroll-back past 30 days, editing times from
+  history.
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like
