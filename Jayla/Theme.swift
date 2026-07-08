@@ -69,6 +69,10 @@ enum Theme {
     // block against the cream page — Joanne's call.
     static let chartTrack = Color(hex: "EEF1F5")
 
+    // The pinned header bar on home/history — a soft blush pink Joanne
+    // supplied as a swatch after finding the coral accent too strong.
+    static let headerBar = Color(hex: "F8DCD2")
+
     // MARK: - Fonts (Baloo 2 display + Nunito body, both SIL OFL)
 
     // The TTFs live in Jayla/Fonts/ and ship as plain bundle resources.

@@ -2,7 +2,7 @@
 //  BabyHeaderBar.swift
 //  Jayla
 //
-//  The pinned coral brand bar — small photo, name, age on one line —
+//  The pinned blush header bar — small photo, name, age on one line —
 //  shared by the home and history tabs via safeAreaInset. Display-only:
 //  the keepsake page owns photo changing and editing.
 //
@@ -33,19 +33,19 @@ struct BabyHeaderBar: View {
 
             Text(baby.name)
                 .font(Theme.display(20, relativeTo: .title3))
-                .foregroundStyle(.white)
+                .foregroundStyle(Theme.ink)
             Text("· \(baby.ageDescription)")
                 .font(Theme.text(13, relativeTo: .footnote))
-                .foregroundStyle(Color(hex: "FFD9D4"))
+                .foregroundStyle(Theme.softInk)
 
             Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
         .padding(.horizontal, 20)
         .padding(.vertical, 10)
-        // The bar paints up behind the status bar too, so the coral
+        // The bar paints up behind the status bar too, so the blush
         // runs to the physical top of the screen.
-        .background { Theme.accent.ignoresSafeArea(edges: .top) }
+        .background { Theme.headerBar.ignoresSafeArea(edges: .top) }
     }
 }
 
