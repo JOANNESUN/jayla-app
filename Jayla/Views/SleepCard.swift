@@ -84,7 +84,7 @@ struct SleepCard: View {
                             .foregroundStyle(Theme.ink)
                     }
                     Button(action: onAdjust) {
-                        Text("since \(timeText(napStart)) · adjust")
+                        Text("since \(Format.time(napStart)) · adjust")
                             .font(Theme.text(12, relativeTo: .caption))
                             .foregroundStyle(Theme.softInk)
                             .underline()
@@ -163,7 +163,7 @@ struct SleepCard: View {
                 }
 
                 if let justWokeDuration {
-                    Text("slept \(durationText(justWokeDuration))")
+                    Text("slept \(Format.duration(justWokeDuration))")
                         .font(Theme.display(24, relativeTo: .title2))
                         .foregroundStyle(Theme.ink)
                     if justWokeDuration < Self.shortNap {
@@ -252,7 +252,7 @@ struct SleepCard: View {
         guard let estimate = durationEstimate else { return nil }
         let wake = napStart.addingTimeInterval(estimate.expected)
         guard wake > now else { return "could wake any time now" }
-        return "likely wakes around \(timeText(wake))" + caveat(estimate.confidence)
+        return "likely wakes around \(Format.time(wake))" + caveat(estimate.confidence)
     }
 
     private func remainingText(napStart: Date) -> String? {
@@ -276,29 +276,15 @@ struct SleepCard: View {
         let window = prediction.napWindow(ageBand: ageBand)
         let suffix = prediction.confidence == .learning ? " · still learning" : ""
         if window.lowerBound <= now {
-            return "between now and \(timeText(window.upperBound))" + suffix
+            return "between now and \(Format.time(window.upperBound))" + suffix
         }
-        return "between \(timeText(window.lowerBound)) and \(timeText(window.upperBound))"
+        return "between \(Format.time(window.lowerBound)) and \(Format.time(window.upperBound))"
             + suffix
     }
 
     /// Elapsed nap time: "42m" / "1h 5m".
     private func elapsedText(since date: Date) -> String {
-        durationText(now.timeIntervalSince(date))
-    }
-
-    private func durationText(_ duration: TimeInterval) -> String {
-        let minutes = max(0, Int(duration / 60))
-        let hours = minutes / 60
-        let rest = minutes % 60
-        if hours > 0 {
-            return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
-        }
-        return "\(minutes)m"
-    }
-
-    private func timeText(_ date: Date) -> String {
-        date.formatted(date: .omitted, time: .shortened)
+        Format.duration(now.timeIntervalSince(date))
     }
 
     private func caveat(_ confidence: PredictionConfidence) -> String {
@@ -312,7 +298,7 @@ struct SleepCard: View {
     // MARK: - Accessibility
 
     private func asleepAccessibilityLabel(napStart: Date) -> String {
-        var label = "Sleeping, \(elapsedText(since: napStart)) so far, since \(timeText(napStart))."
+        var label = "Sleeping, \(elapsedText(since: napStart)) so far, since \(Format.time(napStart))."
         if let wakeText = wakeText(napStart: napStart) {
             label += " \(wakeText)."
         }
@@ -322,7 +308,7 @@ struct SleepCard: View {
     private var awakeAccessibilityLabel: String {
         var label = ""
         if let justWokeDuration {
-            label += "She's awake, slept \(durationText(justWokeDuration))."
+            label += "She's awake, slept \(Format.duration(justWokeDuration))."
             if justWokeDuration < Self.shortNap {
                 label += " Short nap, her next window may be shorter."
             }

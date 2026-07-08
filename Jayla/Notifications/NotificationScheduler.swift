@@ -45,10 +45,10 @@ nonisolated enum NotificationScheduler {
         }
 
         let content = UNMutableNotificationContent()
-        content.title = "\(babyName) may be getting hungry 🍼"
-        content.body = "Next feed predicted around "
+        content.title = "\(babyName) will be hungry soon 🍼"
+        content.body = "Around "
             + date.formatted(date: .omitted, time: .shortened)
-            + ". Long-press to log it."
+            + ". Long-press to log the feed."
         content.sound = .default
         content.badge = 1 // cleared when the app comes to the foreground
         content.categoryIdentifier = NotificationCategories.feedReminder
@@ -85,9 +85,8 @@ nonisolated enum NotificationScheduler {
         let end = window.upperBound.formatted(date: .omitted, time: .shortened)
         await schedule(
             id: pendingNapID,
-            title: "\(babyName) may be getting sleepy soon 😴",
-            body: "Next nap predicted between \(start) and \(end)"
-                + " — a guideline, not a deadline.",
+            title: "Nap time is coming 😴",
+            body: "\(babyName) usually gets sleepy between \(start) and \(end).",
             at: date
         )
     }
@@ -98,8 +97,8 @@ nonisolated enum NotificationScheduler {
     static func scheduleNapCheck(at date: Date, babyName: String) async {
         await schedule(
             id: napCheckID,
-            title: "Is \(babyName) still asleep?",
-            body: "This nap is running long — tap to update her sleep log.",
+            title: "Still napping? 💤",
+            body: "It's been a long one — tap to update her log.",
             at: date
         )
     }

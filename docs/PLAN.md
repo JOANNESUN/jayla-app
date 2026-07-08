@@ -269,6 +269,59 @@ Each phase is independently shippable.
   nap). Never a modal — taps are the currency at 3am. Daily sleep
   totals deliberately deferred to the future **analysis tab** (history
   of feed/nap/pee/poop).
+  *Poop/pee tiles (branch `pee-poop-daily-count`):* the tiles drop the
+  "25 min ago" line for a big **daily count** — parents need how many
+  times today, not when — with Joanne's kawaii poop/pee icons shown
+  full-size. The count is computed against the timeline's `now`, so it
+  rolls to 0 at midnight for free. Timestamps are still stored per
+  event for the future analysis tab. Visual treatment iterated in-place
+  on the branch (see its commits for the current styling).
+- [x] **History page (branch `history-page`).** The analysis tab, iteration 1.
+  Market research (Huckleberry's Day/Week/List/Summary sprawl, Nara's
+  "data is an ongoing reference" study, classic infant actograms)
+  converged on ONE page answering the three questions parents bring to
+  history: *is a rhythm forming* → a 24h day-column **pattern chart**
+  (sleep as ribbons, feeds as dots, pee/poop daily counts under each
+  column, 30 days, opens scrolled to today); *what exactly happened* →
+  tap a column for that day's chronological event list (swipe-to-delete
+  = the correction surface; deleting a feed/sleep goes through the
+  Rescheduler choke point like logging one); *how much / how many* →
+  the day totals row (daily sleep total lands here as promised; wet
+  diapers per day is the number pediatricians ask for). Sleeps are
+  split at midnight (`DayLog.swift`, pure Foundation — every minute
+  lands on the day it was slept; `./JaylaTests/run-daylog.sh`). The
+  open nap draws as a growing gradient ribbon, counted live. Navigation
+  is a minimal 2-tab TabView (Today / History) in ContentView. Shared
+  time strings extracted to `Utilities/Formatters.swift`.
+  *Final structure (July 8, three rounds on Joanne's design comp):*
+  bottom bar has exactly **three tabs — Home (house) / History (chart)
+  / Jayla (person)** — native iOS bar, and History has a **Today |
+  Month pill** (custom segmented control).
+  **History · Today** = sleep card (total so far, live open-nap
+  counting; the day as a horizontal 24h strip) + count-today aggregate
+  cards with "last 2:30 pm" sublines. No event list — Joanne's
+  explicit "numbers all the way" call, asked twice.
+  **History · Month** = the 30-day **sleep rhythm actogram** (sleep
+  ribbons only; feed dots and per-column counts removed — Joanne asked
+  "line instead of bar?", the actogram stayed on the argument that it
+  shows WHEN she sleeps while a line only shows how much, and the line
+  already exists below) → the **4-week sleep trend card** (avg/day,
+  ▲/▼ week-over-week delta — only claimed with ≥3 sleep-days in both
+  weeks, ±5% steady band; daily line chart that skips no-data days AND
+  excludes today since a half-day would drag the line down; hedged
+  narrative chip — descriptive, never a verdict, no "on track" claims)
+  → **per-day average cards** ("5.7 / day · 171 this month").
+  Frequencies only — Jayla logs moments, not volumes, so no ml/day.
+  Trend math is pure `DayLog.trends`, covered by run-daylog.sh.
+  **Jayla tab** = the parked settings sheet as a minimal profile page
+  (`Views/ProfileView.swift`): photo (tap to change), name + age,
+  editable name/birthday with autosave; birthday edits reschedule
+  reminders (age band drives priors).
+  Trade-offs accepted: no per-event rows anywhere → no deleting
+  mis-logs from history, no past-day drill-in. DEBUG env
+  `JAYLA_OPEN_TAB=history|history-month|profile` opens any page
+  headlessly. Deferred: scroll-back past 30 days, editing/deleting
+  events from history.
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like
@@ -287,9 +340,13 @@ Each phase is independently shippable.
   window exclusion; cold-start blend; late-log clamp; erratic data → low
   confidence. Runs with `swiftc` alone, no simulator.
 - **App:** build with `xcodebuild -scheme Jayla -destination
-  'platform=macOS' build` for a fast type-check (the dev Mac has no iOS
-  simulator runtimes); run for real from Xcode on a simulator or iPhone —
-  see `RUNNING.md`.
+  'platform=macOS' build` for a fast type-check, or against
+  `'generic/platform=iOS Simulator'` now that the dev Mac has iOS
+  simulator runtimes (iPhone 17 family, Xcode 26); run for real from
+  Xcode on a simulator or iPhone — see `RUNNING.md`. Flows can be
+  verified headlessly by seeding the SwiftData sqlite store with
+  `sqlite3` (Core Data epoch = unix − 978307200) and reading the DEBUG
+  console prints.
 - **Notifications (3–4):** short debug intervals; verify long-press shows
   `Log feed`/`Snooze`; tapping `Log feed` with the app killed creates
   exactly one event and reschedules; test denied-permission degradation and

@@ -2,16 +2,15 @@
 //  HomeView.swift
 //  Jayla
 //
-//  The "Today dashboard" (design 1a): photo + greeting header, a
-//  countdown hero card that owns the next-feed prediction, then a 2×2
-//  quick-log grid. Logging sits above the fold — the countdown and its
-//  cycle progress bar are the reward that keeps the logging loop going.
-//  Tapping the header photo opens the picker to replace the picture.
+//  The "Today dashboard" (design 1a): name header, a countdown hero
+//  card that owns the next-feed prediction, then a 2×2 quick-log grid.
+//  Logging sits above the fold — the countdown and its cycle progress
+//  bar are the reward that keeps the logging loop going. The photo
+//  lives on the profile tab.
 //
 
 import SwiftUI
 import SwiftData
-import PhotosUI
 
 struct HomeView: View {
     let baby: BabyProfile
@@ -19,7 +18,6 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dynamicTypeSize) private var typeSize
     @Query(sort: \ActivityEvent.timestamp, order: .reverse) private var events: [ActivityEvent]
-    @State private var pickerItem: PhotosPickerItem?
     // The running nap being backdated via the "since 2:40 · adjust" row.
     @State private var adjustingNap: ActivityEvent?
 
@@ -43,10 +41,6 @@ struct HomeView: View {
                 }
             }
         }
-        .onChange(of: pickerItem) { _, item in
-            guard let item else { return }
-            Task { await applyPickedPhoto(item) }
-        }
         .sheet(item: $adjustingNap) { nap in
             NapAdjustSheet(napStart: nap.timestamp) { newStart in
                 ActivityRepository(context: modelContext)
@@ -59,48 +53,19 @@ struct HomeView: View {
 
     // MARK: - Header
 
+    // Name only — the photo lives on the keepsake profile tab, and the
+    // vertical space it took goes to the cards below.
     private var header: some View {
-        HStack(spacing: 14) {
-            photoCircle
-            VStack(alignment: .leading, spacing: 1) {
-                Text(baby.name)
-                    .font(Theme.display(22, relativeTo: .title2))
-                    .foregroundStyle(Theme.ink)
-                Text(baby.ageDescription)
-                    .font(Theme.text(13, relativeTo: .footnote))
-                    .foregroundStyle(Theme.softInk)
-            }
-            .accessibilityElement(children: .combine)
+        VStack(alignment: .leading, spacing: 1) {
+            Text(baby.name)
+                .font(Theme.display(22, relativeTo: .title2))
+                .foregroundStyle(Theme.ink)
+            Text(baby.ageDescription)
+                .font(Theme.text(13, relativeTo: .footnote))
+                .foregroundStyle(Theme.softInk)
         }
+        .accessibilityElement(children: .combine)
         .padding(.top, 8)
-    }
-
-    // The photo is the one place to change the picture. Fixed size on
-    // purpose: it's an image, not text — Dynamic Type shouldn't inflate it.
-    private var photoCircle: some View {
-        PhotosPicker(selection: $pickerItem, matching: .images) {
-            Group {
-                if let data = baby.photoData, let image = Image(photoData: data) {
-                    image.resizable().scaledToFill()
-                } else {
-                    Circle()
-                        .fill(Theme.sleepBadge)
-                        .overlay(
-                            Image(systemName: "photo")
-                                .font(.system(size: 28))
-                                .foregroundStyle(Theme.sleepInk)
-                        )
-                }
-            }
-            .frame(width: 84, height: 84)
-            .clipShape(Circle())
-            .overlay(Circle().strokeBorder(.white, lineWidth: 3))
-            .cardShadow()
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(baby.photoData == nil
-            ? "Add a photo of \(baby.name)" : "\(baby.name)'s photo")
-        .accessibilityHint("Chooses a new photo")
     }
 
     // MARK: - Hero card
@@ -145,7 +110,7 @@ struct HomeView: View {
                         cycleBar(lastFeed: lastFeed, prediction: nextFeed, now: now)
                             .padding(.top, 16)
                         HStack {
-                            Text("\(ActivityType.feed.pastTense) \(humanTime(since: lastFeed.timestamp, now: now))")
+                            Text("\(ActivityType.feed.pastTense) \(Format.humanTime(since: lastFeed.timestamp, now: now))")
                             Spacer()
                             Text(cycleText(nextFeed.expectedInterval))
                         }
@@ -239,7 +204,7 @@ struct HomeView: View {
     /// isn't confident yet. Once the time has passed, it's a past fact:
     /// "expected around 10:52 PM".
     private func statusLine(for prediction: Prediction, overdue: Bool) -> String {
-        "\(overdue ? "expected around" : "around") \(timeText(prediction.nextTime))"
+        "\(overdue ? "expected around" : "around") \(Format.time(prediction.nextTime))"
             + caveat(prediction.confidence)
     }
 
@@ -263,7 +228,7 @@ struct HomeView: View {
         case .roughly:   caveat = ", rough guess"
         case .learning:  caveat = ", still learning"
         }
-        return "Next feed around \(timeText(prediction.nextTime))\(caveat). "
+        return "Next feed around \(Format.time(prediction.nextTime))\(caveat). "
             + "\(spokenCountdown(to: prediction.nextTime, from: now)). "
             + "Jayla will remind you."
     }
@@ -283,7 +248,7 @@ struct HomeView: View {
             durationEstimate: napDurationEstimate(now: now),
             nextNap: nap == nil ? prediction(for: .sleep, now: now) : nil,
             lastSleptText: lastEvent(.sleep).map {
-                "\(ActivityType.sleep.pastTense) \(humanTime(since: $0.timestamp, now: now))"
+                "\(ActivityType.sleep.pastTense) \(Format.humanTime(since: $0.timestamp, now: now))"
             },
             justWokeDuration: nap == nil ? justWokeNap(now: now)?.durationSeconds : nil,
             onStartNap: { log(.sleep) },
@@ -412,33 +377,7 @@ struct HomeView: View {
         Task { await Rescheduler.recomputeAndReschedule() }
     }
 
-    private func applyPickedPhoto(_ item: PhotosPickerItem) async {
-        guard let data = try? await item.loadTransferable(type: Data.self),
-              let jpeg = PhotoProcessing.downscaledJPEG(from: data) else { return }
-        baby.photoData = jpeg
-        try? modelContext.save()
-    }
-
     // MARK: - Formatting
-
-    private func timeText(_ date: Date) -> String {
-        date.formatted(date: .omitted, time: .shortened)
-    }
-
-    /// Coarse, calm relative time: "just now" under a minute, then
-    /// minutes/hours — never ticking seconds, never "Last now".
-    private func humanTime(since date: Date, now: Date) -> String {
-        let seconds = now.timeIntervalSince(date)
-        if seconds < 60 { return "just now" }
-        let minutes = Int(seconds / 60)
-        if minutes < 60 { return "\(minutes) min ago" }
-        let hours = minutes / 60
-        let rest = minutes % 60
-        if hours < 24 {
-            return rest == 0 ? "\(hours)h ago" : "\(hours)h \(rest)m ago"
-        }
-        return date.formatted(date: .abbreviated, time: .shortened)
-    }
 
     /// heroCountdown spelled out for VoiceOver — "1h 5m" reads as
     /// letters, "in 1 hour 5 minutes" reads as time.
