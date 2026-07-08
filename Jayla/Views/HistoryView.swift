@@ -8,10 +8,10 @@
 //
 //  Today → sleep card (total so far, live; the day as a horizontal
 //          24h strip) + count-today cards with "last 2:30 pm" lines.
-//  Month → the 30-day rhythm actogram (WHEN she sleeps), the 4-week
-//          trend card (avg/day, delta, daily line over completed days,
-//          hedged narrative chip), then per-day average cards. Wet
-//          diapers per day is the number the pediatrician asks for.
+//  Month → the 30-day rhythm actogram (WHEN she sleeps), then sleep
+//          average and naps/day side by side (completed days only),
+//          then per-day average cards. Wet diapers per day is the
+//          number the pediatrician asks for.
 //
 
 import SwiftUI
@@ -173,7 +173,7 @@ struct HistoryView: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 7)
-                        .fill(Theme.background)
+                        .fill(Theme.chartTrack)
                     ForEach(day.sleepSegments) { segment in
                         let from = geo.size.width
                             * segment.start.timeIntervalSince(day.day) / dayLength
@@ -227,56 +227,66 @@ struct HistoryView: View {
         PatternChartView(days: days)
 
         // Today is still being written — a half-day would drag the
-        // line and the average down, so the trend reads completed
-        // days only.
+        // average down, so the trend reads completed days only.
         let complete = Array(days.dropLast())
         if let trends = DayLog.trends(days: complete) {
-            trendCard(trends, days: complete)
+            trendRow(trends)
         }
 
         aggregates(days: days)
     }
 
-    // MARK: - Trend card
+    // MARK: - Trend row
 
-    /// The 4-week sleep trend: average, week-over-week delta, the
-    /// daily line, and the interpretation chip.
-    private func trendCard(_ trends: TrendSummary, days: [DaySummary]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("SLEEP TREND · LAST 4 WEEKS")
-                .font(Theme.text(12, .black, relativeTo: .caption))
-                .tracking(1.5)
-                .foregroundStyle(Theme.softInk)
-
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(trends.avgSleepPerDay > 0
-                    ? Format.duration(trends.avgSleepPerDay) : "—")
-                    .font(Theme.display(30, relativeTo: .title))
-                    .foregroundStyle(Theme.sleepInk)
+    /// Sleep average and naps per day, side by side — the long trend
+    /// hero (daily line + narrative chip) traded for space, Joanne's
+    /// call.
+    private func trendRow(_ trends: TrendSummary) -> some View {
+        HStack(spacing: 14) {
+            statCard(title: "SLEEP",
+                     titleColor: Theme.sleepInk,
+                     value: trends.avgSleepPerDay > 0
+                        ? Format.duration(trends.avgSleepPerDay) : "—",
+                     valueColor: Theme.sleepInk,
+                     unit: "avg / day") {
                 deltaBadge(trends)
-                Text("avg / day\(trendWord(trends.direction))")
-                    .font(Theme.text(13, relativeTo: .footnote))
-                    .foregroundStyle(Theme.softInk)
             }
-
-            sleepLine(days: days)
-
-            Text(narrative(for: trends))
-                .font(Theme.text(13, .extraBold, relativeTo: .footnote))
-                .foregroundStyle(Theme.cobalt)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.sleepBadge,
-                            in: RoundedRectangle(cornerRadius: 12))
+            statCard(title: "NAPS",
+                     titleColor: Theme.lavender,
+                     value: trends.napsPerDay > 0
+                        ? String(format: "%.1f", trends.napsPerDay) : "—",
+                     valueColor: Theme.lavender,
+                     unit: "avg / day") { EmptyView() }
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.white)
-        .clipShape(RoundedRectangle(cornerRadius: 28))
-        .cardShadow()
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(trendAccessibilityLabel(trends))
+    }
+
+    private func statCard(title: String, titleColor: Color,
+                          value: String, valueColor: Color,
+                          unit: String,
+                          @ViewBuilder badge: () -> some View) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(Theme.text(12, .black, relativeTo: .caption))
+                .tracking(1.5)
+                .foregroundStyle(titleColor)
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(value)
+                    .font(Theme.display(26, relativeTo: .title2))
+                    .foregroundStyle(valueColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
+                badge()
+            }
+            Text(unit)
+                .font(Theme.text(12, relativeTo: .caption))
+                .foregroundStyle(Theme.softInk)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white, in: RoundedRectangle(cornerRadius: 22))
+        .cardShadow()
     }
 
     /// "▲ 40m" week over week — only when the direction is earned.
@@ -295,81 +305,6 @@ struct HistoryView: View {
             }
             .foregroundStyle(delta > 0 ? Theme.emerald : Theme.softInk)
         }
-    }
-
-    private func trendWord(_ direction: TrendSummary.Direction) -> String {
-        switch direction {
-        case .up:      " · trending up"
-        case .down:    " · easing off"
-        case .steady:  " · steady"
-        case .unknown: ""
-        }
-    }
-
-    /// Daily sleep totals as one line across the month, days without
-    /// sleep data skipped rather than drawn as false zeros.
-    private func sleepLine(days: [DaySummary]) -> some View {
-        let points: [(index: Int, total: TimeInterval)] = days.enumerated()
-            .filter { !$0.element.sleepSegments.isEmpty }
-            .map { ($0.offset, $0.element.sleepTotal) }
-        let maxTotal = max(points.map(\.total).max() ?? 1, 1)
-        let span = Double(max(days.count - 1, 1))
-
-        return VStack(spacing: 4) {
-            GeometryReader { geo in
-                let w = geo.size.width, h = geo.size.height
-                let at = { (p: (index: Int, total: TimeInterval)) in
-                    CGPoint(x: w * Double(p.index) / span,
-                            y: h * (1 - 0.9 * p.total / maxTotal))
-                }
-                if points.count >= 2 {
-                    Path { path in
-                        path.move(to: at(points[0]))
-                        for point in points.dropFirst() {
-                            path.addLine(to: at(point))
-                        }
-                        path.addLine(to: CGPoint(x: at(points[points.count - 1]).x, y: h))
-                        path.addLine(to: CGPoint(x: at(points[0]).x, y: h))
-                        path.closeSubpath()
-                    }
-                    .fill(LinearGradient(
-                        colors: [Theme.sleepBadge, Theme.sleepBadge.opacity(0)],
-                        startPoint: .top, endPoint: .bottom))
-
-                    Path { path in
-                        path.move(to: at(points[0]))
-                        for point in points.dropFirst() {
-                            path.addLine(to: at(point))
-                        }
-                    }
-                    .stroke(Theme.sleepInk,
-                            style: StrokeStyle(lineWidth: 2.5,
-                                               lineCap: .round,
-                                               lineJoin: .round))
-
-                    let last = at(points[points.count - 1])
-                    Circle()
-                        .fill(.white)
-                        .stroke(Theme.sleepInk, lineWidth: 2.5)
-                        .frame(width: 9, height: 9)
-                        .position(last)
-                } else {
-                    Text("a few more days of naps will draw the trend here")
-                        .font(Theme.text(12, relativeTo: .caption))
-                        .foregroundStyle(Theme.softInk)
-                        .frame(width: w, height: h)
-                }
-            }
-            .frame(height: 88)
-
-            HStack {
-                Text("Wk 1"); Spacer(); Text("Wk 2"); Spacer()
-                Text("Wk 3"); Spacer(); Text("Wk 4")
-            }
-            .font(Theme.text(10, relativeTo: .caption2))
-            .foregroundStyle(Theme.softInk.opacity(0.8))
-        }
-        .accessibilityHidden(true)
     }
 
     // MARK: - Aggregate cards
@@ -478,7 +413,10 @@ struct HistoryView: View {
         let avg = trends.avgSleepPerDay > 0
             ? "She sleeps \(Format.duration(trends.avgSleepPerDay)) a day this week. "
             : ""
-        return avg + narrative(for: trends)
+        let naps = trends.napsPerDay > 0
+            ? String(format: "About %.1f sleeps a day. ", trends.napsPerDay)
+            : ""
+        return avg + naps + narrative(for: trends)
     }
 
     // MARK: - Data

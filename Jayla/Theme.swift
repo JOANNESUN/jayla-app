@@ -64,6 +64,11 @@ enum Theme {
     static let keepsakeTape = Color(hex: "D9C49A") // washi tape tan
     static let keepsakeDate = Color(hex: "A6512E") // warm terracotta "born …" line
 
+    // Empty 24h tracks on the history charts. Cool light gray on
+    // purpose: cream tracks made the whole chart read as one yellow
+    // block against the cream page — Joanne's call.
+    static let chartTrack = Color(hex: "EEF1F5")
+
     // MARK: - Fonts (Baloo 2 display + Nunito body, both SIL OFL)
 
     // The TTFs live in Jayla/Fonts/ and ship as plain bundle resources.

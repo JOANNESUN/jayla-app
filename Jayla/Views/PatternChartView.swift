@@ -102,7 +102,7 @@ private struct DayColumn: View {
     private var track: some View {
         ZStack(alignment: .top) {
             RoundedRectangle(cornerRadius: 8)
-                .fill(Theme.background)
+                .fill(Theme.chartTrack)
 
             ForEach(summary.sleepSegments) { segment in
                 ribbon(for: segment)

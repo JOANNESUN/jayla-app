@@ -31,14 +31,16 @@ struct HomeView: View {
             TimelineView(.everyMinute) { timeline in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        header
                         heroCard(now: timeline.date)
                         sleepSection(now: timeline.date)
                         quickLogGrid(now: timeline.date)
                     }
                     .padding(.horizontal, 20)
+                    .padding(.top, 6)
                     .padding(.bottom, 32)
                 }
+                // The header stays put while the cards scroll under it.
+                .safeAreaInset(edge: .top, spacing: 0) { header }
             }
         }
         .sheet(item: $adjustingNap) { nap in
@@ -53,19 +55,40 @@ struct HomeView: View {
 
     // MARK: - Header
 
-    // Name only — the photo lives on the keepsake profile tab, and the
-    // vertical space it took goes to the cards below.
+    // One pinned line: small photo, name, age. Display-only — the
+    // keepsake page owns photo changing and editing.
     private var header: some View {
-        VStack(alignment: .leading, spacing: 1) {
+        HStack(spacing: 10) {
+            Group {
+                if let data = baby.photoData, let image = Image(photoData: data) {
+                    image.resizable().scaledToFill()
+                } else {
+                    Circle()
+                        .fill(Theme.sleepBadge)
+                        .overlay(
+                            Image(systemName: "photo")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Theme.sleepInk)
+                        )
+                }
+            }
+            .frame(width: 36, height: 36)
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+
             Text(baby.name)
-                .font(Theme.display(22, relativeTo: .title2))
+                .font(Theme.display(20, relativeTo: .title3))
                 .foregroundStyle(Theme.ink)
-            Text(baby.ageDescription)
+            Text("· \(baby.ageDescription)")
                 .font(Theme.text(13, relativeTo: .footnote))
                 .foregroundStyle(Theme.softInk)
+
+            Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
-        .padding(.top, 8)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 8)
+        .background(Theme.background)
     }
 
     // MARK: - Hero card
