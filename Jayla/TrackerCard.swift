@@ -24,37 +24,36 @@ struct TrackerCard: View {
 
     // Glyphs sit next to scaling text, so they scale too. The SVGs are
     // cropped tight (no built-in margins).
-    @ScaledMetric(relativeTo: .headline) private var iconSize = 34.0
+    @ScaledMetric(relativeTo: .headline) private var iconSize = 56.0
     @ScaledMetric(relativeTo: .headline) private var plusSize = 28.0
 
-    // One row — icon · count · "+" — so the tile stays short and the
-    // whole dashboard fits the screen without scrolling.
+    // Centered column — big icon with the "+" tucked into its corner,
+    // count underneath — so nothing fights for width on a half-width
+    // tile and the text never wraps on narrower phones.
     var body: some View {
-        HStack(spacing: 8) {
+        VStack(spacing: 6) {
             Image(type.icon)
                 .resizable()
                 .scaledToFit()
                 .frame(width: iconSize, height: iconSize)
                 .accessibilityHidden(true)
+                .overlay(alignment: .bottomTrailing) {
+                    logButton.offset(x: 20, y: 8)
+                }
 
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("\(count)")
-                    .font(Theme.display(30, relativeTo: .title2))
+                    .font(Theme.display(32, relativeTo: .title))
                     .foregroundStyle(type.countColor)
                 Text("today")
-                    .font(Theme.text(12, relativeTo: .caption))
+                    .font(Theme.text(13, relativeTo: .caption))
                     .foregroundStyle(Theme.softInk)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(type.label), \(count) today")
-
-            Spacer(minLength: 0)
-
-            logButton
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity)
         .background(.white, in: RoundedRectangle(cornerRadius: 22))
         .overlay(
             RoundedRectangle(cornerRadius: 22)
