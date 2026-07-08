@@ -293,28 +293,35 @@ Each phase is independently shippable.
   open nap draws as a growing gradient ribbon, counted live. Navigation
   is a minimal 2-tab TabView (Today / History) in ContentView. Shared
   time strings extracted to `Utilities/Formatters.swift`.
-  *Restructured to Joanne's design comp (July 8, two rounds):* no
-  in-page toggle — the bottom tab bar does the job (**Home** = today,
-  house icon; **History** = the month, chart icon). The History tab is
-  one scroll, sleep first: the 30-day **sleep rhythm actogram** (sleep
-  ribbons only; feed dots, per-column counts and tap-select removed —
-  Joanne asked "line instead of bar?", the actogram stayed on the
-  argument that it shows WHEN she sleeps while a line only shows how
-  much, and the line already exists below) → the **4-week sleep trend
-  card** (avg/day, ▲/▼ week-over-week delta — only claimed with ≥3
-  sleep-days in both weeks, ±5% steady band; daily line chart that
-  skips no-data days AND excludes today since a half-day would drag
-  the line down; hedged narrative chip — descriptive, never a verdict,
-  no "on track" claims) → **per-day average cards** ("5.7 / day · 171
-  this month"). Frequencies only by Joanne's call — Jayla logs
-  moments, not volumes, so no ml/day. Trend math is pure
-  `DayLog.trends`, covered by run-daylog.sh. Trade-offs accepted:
-  no per-event history rows, so no deleting mis-logs from history and
-  no past-day drill-in; DEBUG env `JAYLA_OPEN_HISTORY=1` opens the tab
+  *Final structure (July 8, three rounds on Joanne's design comp):*
+  bottom bar has exactly **three tabs — Home (house) / History (chart)
+  / Jayla (person)** — native iOS bar, and History has a **Today |
+  Month pill** (custom segmented control).
+  **History · Today** = sleep card (total so far, live open-nap
+  counting; the day as a horizontal 24h strip) + count-today aggregate
+  cards with "last 2:30 pm" sublines. No event list — Joanne's
+  explicit "numbers all the way" call, asked twice.
+  **History · Month** = the 30-day **sleep rhythm actogram** (sleep
+  ribbons only; feed dots and per-column counts removed — Joanne asked
+  "line instead of bar?", the actogram stayed on the argument that it
+  shows WHEN she sleeps while a line only shows how much, and the line
+  already exists below) → the **4-week sleep trend card** (avg/day,
+  ▲/▼ week-over-week delta — only claimed with ≥3 sleep-days in both
+  weeks, ±5% steady band; daily line chart that skips no-data days AND
+  excludes today since a half-day would drag the line down; hedged
+  narrative chip — descriptive, never a verdict, no "on track" claims)
+  → **per-day average cards** ("5.7 / day · 171 this month").
+  Frequencies only — Jayla logs moments, not volumes, so no ml/day.
+  Trend math is pure `DayLog.trends`, covered by run-daylog.sh.
+  **Jayla tab** = the parked settings sheet as a minimal profile page
+  (`Views/ProfileView.swift`): photo (tap to change), name + age,
+  editable name/birthday with autosave; birthday edits reschedule
+  reminders (age band drives priors).
+  Trade-offs accepted: no per-event rows anywhere → no deleting
+  mis-logs from history, no past-day drill-in. DEBUG env
+  `JAYLA_OPEN_TAB=history|history-month|profile` opens any page
   headlessly. Deferred: scroll-back past 30 days, editing/deleting
-  events from history, a "Jayla" profile tab (parked with the
-  settings sheet). Deliberately NOT built: per-event log list — revisit
-  only if mis-log correction becomes a real pain.
+  events from history.
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like
