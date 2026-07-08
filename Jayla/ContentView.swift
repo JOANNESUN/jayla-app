@@ -36,7 +36,7 @@ struct ContentView: View {
                 HomeView(baby: baby)
                     .tabItem { Label("Home", systemImage: "house.fill") }
                     .tag(0)
-                HistoryView()
+                HistoryView(baby: baby)
                     .tabItem { Label("History", systemImage: "chart.bar.fill") }
                     .tag(1)
                 ProfileView(baby: baby)

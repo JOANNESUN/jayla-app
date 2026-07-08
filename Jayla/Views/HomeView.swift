@@ -40,7 +40,7 @@ struct HomeView: View {
                     .padding(.bottom, 32)
                 }
                 // The header stays put while the cards scroll under it.
-                .safeAreaInset(edge: .top, spacing: 0) { header }
+                .safeAreaInset(edge: .top, spacing: 0) { BabyHeaderBar(baby: baby) }
             }
         }
         .sheet(item: $adjustingNap) { nap in
@@ -51,47 +51,6 @@ struct HomeView: View {
                 Task { await Rescheduler.recomputeAndReschedule() }
             }
         }
-    }
-
-    // MARK: - Header
-
-    // One pinned line: small photo, name, age, on a coral brand bar
-    // (Joanne picked it from five header mockups). Display-only — the
-    // keepsake page owns photo changing and editing.
-    private var header: some View {
-        HStack(spacing: 10) {
-            Group {
-                if let data = baby.photoData, let image = Image(photoData: data) {
-                    image.resizable().scaledToFill()
-                } else {
-                    Circle()
-                        .fill(Theme.feedBadge)
-                        .overlay(
-                            Image(systemName: "photo")
-                                .font(.system(size: 14))
-                                .foregroundStyle(Theme.accent)
-                        )
-                }
-            }
-            .frame(width: 36, height: 36)
-            .clipShape(Circle())
-            .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-
-            Text(baby.name)
-                .font(Theme.display(20, relativeTo: .title3))
-                .foregroundStyle(.white)
-            Text("· \(baby.ageDescription)")
-                .font(Theme.text(13, relativeTo: .footnote))
-                .foregroundStyle(Color(hex: "FFD9D4"))
-
-            Spacer(minLength: 0)
-        }
-        .accessibilityElement(children: .combine)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        // The bar paints up behind the status bar too, so the coral
-        // runs to the physical top of the screen.
-        .background { Theme.accent.ignoresSafeArea(edges: .top) }
     }
 
     // MARK: - Hero card

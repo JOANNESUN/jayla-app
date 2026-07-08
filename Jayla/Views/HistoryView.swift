@@ -18,6 +18,8 @@ import SwiftUI
 import SwiftData
 
 struct HistoryView: View {
+    let baby: BabyProfile
+
     @Query private var events: [ActivityEvent]
     @State private var page = HistoryView.initialPage
 
@@ -37,7 +39,8 @@ struct HistoryView: View {
     /// The page (and trend math) covers this many days.
     private static let daysBack = 30
 
-    init() {
+    init(baby: BabyProfile) {
+        self.baby = baby
         // One extra day so a sleep that starts before the window still
         // spills its in-window segment onto the first visible column.
         let cutoff = Calendar.current.date(
@@ -62,11 +65,6 @@ struct HistoryView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("History")
-                            .font(Theme.display(22, relativeTo: .title2))
-                            .foregroundStyle(Theme.ink)
-                            .padding(.top, 8)
-
                         pageToggle
 
                         if page == .today {
@@ -76,8 +74,12 @@ struct HistoryView: View {
                         }
                     }
                     .padding(.horizontal, 20)
+                    .padding(.top, 6)
                     .padding(.bottom, 32)
                 }
+                // Same pinned brand bar as the home tab, in place of a
+                // "History" title.
+                .safeAreaInset(edge: .top, spacing: 0) { BabyHeaderBar(baby: baby) }
                 #if DEBUG
                 .onAppear { debugDump(days) }
                 #endif
@@ -444,6 +446,8 @@ struct HistoryView: View {
 }
 
 #Preview {
-    HistoryView()
+    HistoryView(baby: BabyProfile(name: "Jayla",
+                                  birthdate: Calendar.current.date(
+                                      byAdding: .month, value: -5, to: .now)!))
         .modelContainer(for: [ActivityEvent.self, BabyProfile.self], inMemory: true)
 }
