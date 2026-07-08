@@ -23,7 +23,8 @@ struct PatternChartView: View {
 
     /// Height of the 24h track.
     private static let trackHeight: CGFloat = 220
-    private static let columnWidth: CGFloat = 30
+    private static let columnWidth: CGFloat = 34
+    private static let rulerWidth: CGFloat = 30
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -56,15 +57,18 @@ struct PatternChartView: View {
     }
 
     /// 6a / 12p / 6p marks along the 24h track, pinned outside the
-    /// scroll so they hold while the days slide.
+    /// scroll so they hold while the days slide. fixedSize: these are
+    /// part of the drawing — at big Dynamic Type sizes they'd wrap
+    /// inside the ruler ("12p" stacking) instead of staying marks.
     private var hourRuler: some View {
         ZStack(alignment: .topTrailing) {
-            Color.clear.frame(width: 22, height: Self.trackHeight)
+            Color.clear.frame(width: Self.rulerWidth, height: Self.trackHeight)
             ForEach([(6, "6a"), (12, "12p"), (18, "6p")], id: \.0) { hour, label in
                 Text(label)
                     .font(Theme.text(9, relativeTo: .caption2))
                     .foregroundStyle(Theme.softInk.opacity(0.8))
-                    .frame(width: 22, alignment: .trailing)
+                    .fixedSize()
+                    .frame(width: Self.rulerWidth, alignment: .trailing)
                     .offset(y: Self.trackHeight * CGFloat(hour) / 24 - 6)
             }
         }
@@ -120,7 +124,7 @@ private struct DayColumn: View {
                     colors: [Theme.sleepInk, Theme.sleepInk.opacity(0.35)],
                     startPoint: .top, endPoint: .bottom))
                 : AnyShapeStyle(Theme.sleepInk))
-            .frame(width: 14, height: height)
+            .frame(width: 16, height: height)
             .offset(y: top)
     }
 
@@ -131,14 +135,18 @@ private struct DayColumn: View {
         return trackHeight * CGFloat(min(max(fraction, 0), 1))
     }
 
+    // fixedSize keeps "Wed" one word — in a 30pt column it wrapped to
+    // "We / d" on narrower phones with bigger text.
     private var labels: some View {
         VStack(spacing: 0) {
             Text(dayStart.formatted(.dateTime.weekday(.abbreviated)))
                 .font(Theme.text(9, relativeTo: .caption2))
                 .foregroundStyle(Theme.softInk)
+                .fixedSize()
             Text(dayStart.formatted(.dateTime.day()))
                 .font(Theme.display(13, relativeTo: .caption))
                 .foregroundStyle(isToday ? Theme.accent : Theme.ink)
+                .fixedSize()
         }
     }
 

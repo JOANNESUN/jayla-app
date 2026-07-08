@@ -73,10 +73,6 @@ struct TrendSummary {
     /// Fewer, longer naps than the week before (with sleep not down) —
     /// the consolidation milestone parents watch for.
     let napsConsolidating: Bool
-    /// Sleeps per day over the last week's sleep-logged days — same
-    /// segment counting as the consolidation check (a night crossing
-    /// midnight counts on both days).
-    let napsPerDay: Double
     let feedsPerDay: Double
     let peePerDay: Double
     let poopPerDay: Double
@@ -240,16 +236,11 @@ enum DayLog {
         // Frequencies: the last 7 days that logged anything.
         let tracked = Array(days.filter { !$0.isEmpty }.suffix(7))
         let count = Double(tracked.count)
-        let sleptDays = days.suffix(7).filter { !$0.sleepSegments.isEmpty }
-        let napsPerDay = sleptDays.isEmpty ? 0
-            : Double(sleptDays.reduce(0) { $0 + $1.sleepSegments.count })
-                / Double(sleptDays.count)
         return TrendSummary(
             weeks: weeks,
             avgSleepPerDay: latest?.avgSleep ?? 0,
             direction: direction,
             napsConsolidating: consolidating,
-            napsPerDay: napsPerDay,
             feedsPerDay: Double(tracked.reduce(0) { $0 + $1.feedCount }) / count,
             peePerDay: Double(tracked.reduce(0) { $0 + $1.peeCount }) / count,
             poopPerDay: Double(tracked.reduce(0) { $0 + $1.poopCount }) / count)

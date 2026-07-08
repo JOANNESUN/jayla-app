@@ -8,10 +8,10 @@
 //
 //  Today → sleep card (total so far, live; the day as a horizontal
 //          24h strip) + count-today cards with "last 2:30 pm" lines.
-//  Month → the 30-day rhythm actogram (WHEN she sleeps), then sleep
-//          average and naps/day side by side (completed days only),
-//          then per-day average cards. Wet diapers per day is the
-//          number the pediatrician asks for.
+//  Month → the 30-day rhythm actogram (WHEN she sleeps), then four
+//          squares: sleep avg/day (completed days only, with the
+//          week-over-week delta) and feeds/poops/pees per day. Wet
+//          diapers per day is the number the pediatrician asks for.
 //
 
 import SwiftUI
@@ -193,14 +193,21 @@ struct HistoryView: View {
             }
             .frame(height: 20)
 
+            // fixedSize for the same reason as the actogram's labels:
+            // chart marks must never wrap at big text sizes.
             HStack {
-                Text("12a"); Spacer(); Text("6a"); Spacer()
-                Text("12p"); Spacer(); Text("6p"); Spacer(); Text("12a")
+                mark("12a"); Spacer(); mark("6a"); Spacer()
+                mark("12p"); Spacer(); mark("6p"); Spacer(); mark("12a")
             }
-            .font(Theme.text(9, relativeTo: .caption2))
             .foregroundStyle(Theme.softInk.opacity(0.8))
         }
         .accessibilityHidden(true)
+    }
+
+    private func mark(_ label: String) -> some View {
+        Text(label)
+            .font(Theme.text(9, relativeTo: .caption2))
+            .fixedSize()
     }
 
     /// "last 2:30 pm" — or an honest blank early in the day.
@@ -225,68 +232,78 @@ struct HistoryView: View {
     @ViewBuilder
     private func monthPage(days: [DaySummary]) -> some View {
         PatternChartView(days: days)
+        statGrid(days: days)
+    }
 
+    // MARK: - Stat squares
+
+    /// The month in four squares — sleep average, then feeds, poops
+    /// and pees per day. Averages only, no monthly totals; sleep and
+    /// naps deliberately one number (Joanne's call: don't split them).
+    private func statGrid(days: [DaySummary]) -> some View {
         // Today is still being written — a half-day would drag the
-        // average down, so the trend reads completed days only.
-        let complete = Array(days.dropLast())
-        if let trends = DayLog.trends(days: complete) {
-            trendRow(trends)
-        }
+        // sleep average down, so the trend reads completed days only.
+        let trends = DayLog.trends(days: Array(days.dropLast()))
+        let tracked = max(days.filter { !$0.isEmpty }.count, 1)
+        let feeds = days.reduce(0) { $0 + $1.feedCount }
+        let poops = days.reduce(0) { $0 + $1.poopCount }
+        let pees = days.reduce(0) { $0 + $1.peeCount }
 
-        aggregates(days: days)
-    }
-
-    // MARK: - Trend row
-
-    /// Sleep average and naps per day, side by side — the long trend
-    /// hero (daily line + narrative chip) traded for space, Joanne's
-    /// call.
-    private func trendRow(_ trends: TrendSummary) -> some View {
-        HStack(spacing: 14) {
-            statCard(title: "SLEEP",
-                     titleColor: Theme.sleepInk,
-                     value: trends.avgSleepPerDay > 0
-                        ? Format.duration(trends.avgSleepPerDay) : "—",
-                     valueColor: Theme.sleepInk,
-                     unit: "avg / day") {
-                deltaBadge(trends)
+        return LazyVGrid(columns: [GridItem(.flexible(), spacing: 14),
+                                   GridItem(.flexible(), spacing: 14)],
+                         spacing: 14) {
+            squareCard(.sleep,
+                       value: (trends?.avgSleepPerDay ?? 0) > 0
+                          ? Format.duration(trends!.avgSleepPerDay) : "—",
+                       unit: "sleep / day",
+                       a11y: sleepAccessibilityLabel(trends)) {
+                if let trends { deltaBadge(trends) }
             }
-            statCard(title: "NAPS",
-                     titleColor: Theme.lavender,
-                     value: trends.napsPerDay > 0
-                        ? String(format: "%.1f", trends.napsPerDay) : "—",
-                     valueColor: Theme.lavender,
-                     unit: "avg / day") { EmptyView() }
+            squareCard(.feed, value: perDay(feeds, over: tracked),
+                       unit: "feeds / day")
+            squareCard(.poop, value: perDay(poops, over: tracked),
+                       unit: "poops / day")
+            squareCard(.pee, value: perDay(pees, over: tracked),
+                       unit: "pees / day")
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(trendAccessibilityLabel(trends))
     }
 
-    private func statCard(title: String, titleColor: Color,
-                          value: String, valueColor: Color,
-                          unit: String,
-                          @ViewBuilder badge: () -> some View) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(Theme.text(12, .black, relativeTo: .caption))
-                .tracking(1.5)
-                .foregroundStyle(titleColor)
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+    /// One square: icon chip, the average, what it counts.
+    private func squareCard(_ type: ActivityType, value: String,
+                            unit: String, a11y: String? = nil,
+                            @ViewBuilder badge: () -> some View = { EmptyView() }
+    ) -> some View {
+        VStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 14)
+                .fill(chipColor(type))
+                .frame(width: 44, height: 44)
+                .overlay(
+                    Image(iconAsset(type))
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 27, height: 27)
+                )
+
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
                 Text(value)
-                    .font(Theme.display(26, relativeTo: .title2))
-                    .foregroundStyle(valueColor)
+                    .font(Theme.display(24, relativeTo: .title2))
+                    .foregroundStyle(type.countColor)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+                    .minimumScaleFactor(0.6)
                 badge()
             }
+
             Text(unit)
                 .font(Theme.text(12, relativeTo: .caption))
                 .foregroundStyle(Theme.softInk)
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity)
         .background(.white, in: RoundedRectangle(cornerRadius: 22))
         .cardShadow()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(a11y ?? "\(type.label), \(value) \(unit)")
     }
 
     /// "▲ 40m" week over week — only when the direction is earned.
@@ -308,20 +325,6 @@ struct HistoryView: View {
     }
 
     // MARK: - Aggregate cards
-
-    @ViewBuilder
-    private func aggregates(days: [DaySummary]) -> some View {
-        let tracked = max(days.filter { !$0.isEmpty }.count, 1)
-        let feeds = days.reduce(0) { $0 + $1.feedCount }
-        let poops = days.reduce(0) { $0 + $1.poopCount }
-        let pees = days.reduce(0) { $0 + $1.peeCount }
-        aggregateCard(.feed, headline: perDay(feeds, over: tracked),
-                      unit: "/ day", subline: "\(feeds) this month")
-        aggregateCard(.poop, headline: perDay(poops, over: tracked),
-                      unit: "/ day", subline: "\(poops) this month")
-        aggregateCard(.pee, headline: perDay(pees, over: tracked),
-                      unit: "/ day", subline: "\(pees) this month")
-    }
 
     /// One activity, one number — Joanne's call: everything that isn't
     /// sleep is just an aggregate. Icon chip, name, context line, and
@@ -409,14 +412,12 @@ struct HistoryView: View {
         String(format: "%.1f", Double(total) / Double(days))
     }
 
-    private func trendAccessibilityLabel(_ trends: TrendSummary) -> String {
-        let avg = trends.avgSleepPerDay > 0
-            ? "She sleeps \(Format.duration(trends.avgSleepPerDay)) a day this week. "
-            : ""
-        let naps = trends.napsPerDay > 0
-            ? String(format: "About %.1f sleeps a day. ", trends.napsPerDay)
-            : ""
-        return avg + naps + narrative(for: trends)
+    private func sleepAccessibilityLabel(_ trends: TrendSummary?) -> String {
+        guard let trends, trends.avgSleepPerDay > 0 else {
+            return "Sleep. Not enough data yet."
+        }
+        return "She sleeps \(Format.duration(trends.avgSleepPerDay)) a day this week. "
+            + narrative(for: trends)
     }
 
     // MARK: - Data
