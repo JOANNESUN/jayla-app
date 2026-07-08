@@ -42,7 +42,7 @@ struct SleepCard: View {
     var onUndoWake: () -> Void = {}
 
     /// Under one sleep cycle — the "45-minute intruder". The summary
-    /// calls it what it is: a catnap.
+    /// roasts it instead of lecturing about wake windows.
     private static let shortNap: TimeInterval = 45 * 60
 
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -167,7 +167,7 @@ struct SleepCard: View {
                         .font(Theme.display(24, relativeTo: .title2))
                         .foregroundStyle(Theme.ink)
                     if justWokeDuration < Self.shortNap {
-                        Text("just a catnap 🐱")
+                        Text("she rage-quit that nap 😤")
                             .font(Theme.text(12, relativeTo: .caption))
                             .foregroundStyle(Theme.softInk)
                     }
@@ -301,7 +301,7 @@ struct SleepCard: View {
         if let justWokeDuration {
             label += "She's awake, slept \(Format.duration(justWokeDuration))."
             if justWokeDuration < Self.shortNap {
-                label += " Just a catnap."
+                label += " She rage-quit that nap."
             }
             label += " "
         }
