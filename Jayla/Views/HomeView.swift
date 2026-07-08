@@ -55,7 +55,8 @@ struct HomeView: View {
 
     // MARK: - Header
 
-    // One pinned line: small photo, name, age. Display-only — the
+    // One pinned line: small photo, name, age, on a coral brand bar
+    // (Joanne picked it from five header mockups). Display-only — the
     // keepsake page owns photo changing and editing.
     private var header: some View {
         HStack(spacing: 10) {
@@ -64,11 +65,11 @@ struct HomeView: View {
                     image.resizable().scaledToFill()
                 } else {
                     Circle()
-                        .fill(Theme.sleepBadge)
+                        .fill(Theme.feedBadge)
                         .overlay(
                             Image(systemName: "photo")
                                 .font(.system(size: 14))
-                                .foregroundStyle(Theme.sleepInk)
+                                .foregroundStyle(Theme.accent)
                         )
                 }
             }
@@ -78,17 +79,19 @@ struct HomeView: View {
 
             Text(baby.name)
                 .font(Theme.display(20, relativeTo: .title3))
-                .foregroundStyle(Theme.ink)
+                .foregroundStyle(.white)
             Text("· \(baby.ageDescription)")
                 .font(Theme.text(13, relativeTo: .footnote))
-                .foregroundStyle(Theme.softInk)
+                .foregroundStyle(Color(hex: "FFD9D4"))
 
             Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
         .padding(.horizontal, 20)
-        .padding(.vertical, 8)
-        .background(Theme.background)
+        .padding(.vertical, 10)
+        // The bar paints up behind the status bar too, so the coral
+        // runs to the physical top of the screen.
+        .background { Theme.accent.ignoresSafeArea(edges: .top) }
     }
 
     // MARK: - Hero card
