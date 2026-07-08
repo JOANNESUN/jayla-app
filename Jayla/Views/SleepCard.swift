@@ -6,7 +6,7 @@
 //  feed), so it gets a full-width card instead of a quick-log tile.
 //  Two states, driven by whether a nap is open:
 //
-//  awake  → "LOW BATTERY" + bell (a reminder is pending), the nap
+//  awake  → "SLEEPY IN…" + bell (a reminder is pending), the nap
 //           window, and a Start nap pill ("WIDE AWAKE" right after
 //           a wake)
 //  asleep → "DO NOT DISTURB": a progress ring (elapsed vs predicted
@@ -41,10 +41,6 @@ struct SleepCard: View {
     var onWakeUp: () -> Void = {}
     var onAdjust: () -> Void = {}
     var onUndoWake: () -> Void = {}
-
-    /// Under one sleep cycle — the "45-minute intruder". The summary
-    /// roasts it instead of lecturing about wake windows.
-    private static let shortNap: TimeInterval = 45 * 60
 
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .title2) private var ringSize = 104.0
@@ -150,7 +146,7 @@ struct SleepCard: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text(justWokeDuration == nil ? "LOW BATTERY 🪫" : "WIDE AWAKE ☀️")
+                    Text(justWokeDuration == nil ? "SLEEPY IN…" : "WIDE AWAKE ☀️")
                         .font(Theme.text(12, .black, relativeTo: .caption))
                         .tracking(1.5)
                         .foregroundStyle(Theme.sleepInk)
@@ -167,11 +163,6 @@ struct SleepCard: View {
                     Text("slept \(Format.duration(justWokeDuration))")
                         .font(Theme.display(24, relativeTo: .title2))
                         .foregroundStyle(Theme.ink)
-                    if justWokeDuration < Self.shortNap {
-                        Text("she rage-quit that nap 😤")
-                            .font(Theme.text(12, relativeTo: .caption))
-                            .foregroundStyle(Theme.softInk)
-                    }
                 }
 
                 if let nextNap {
@@ -300,11 +291,7 @@ struct SleepCard: View {
     private var awakeAccessibilityLabel: String {
         var label = ""
         if let justWokeDuration {
-            label += "She's awake, slept \(Format.duration(justWokeDuration))."
-            if justWokeDuration < Self.shortNap {
-                label += " She rage-quit that nap."
-            }
-            label += " "
+            label += "She's awake, slept \(Format.duration(justWokeDuration)). "
         }
         guard let nextNap else {
             return label + "Next nap. Log the first nap to start predictions."
