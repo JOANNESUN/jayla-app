@@ -59,4 +59,25 @@ extension BabyProfile {
         default:       .older
         }
     }
+
+    /// The keepsake page's age line — same day/week/month thresholds as
+    /// ageDescription, but phrased for the scrapbook: "2 days of pure
+    /// magic ✨".
+    var keepsakeAge: String {
+        let comps = Calendar.current.dateComponents([.month, .day], from: birthdate, to: .now)
+        let months = comps.month ?? 0
+        let amount: String
+        if months <= 0 {
+            let days = max(ageInDays, 0)
+            let weeks = days / 7
+            if weeks < 1 {
+                amount = "\(days) day\(days == 1 ? "" : "s")"
+            } else {
+                amount = "\(weeks) week\(weeks == 1 ? "" : "s")"
+            }
+        } else {
+            amount = "\(months) month\(months == 1 ? "" : "s")"
+        }
+        return "\(amount) of pure magic ✨"
+    }
 }

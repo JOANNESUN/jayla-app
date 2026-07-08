@@ -58,6 +58,12 @@ enum Theme {
     static let cobalt     = Color(hex: "1E5EF5")   // deep blue
     static let brickRed   = Color(hex: "E6322E")   // strong red
 
+    // Keepsake (profile) page — paler cream card + washi-tape tan,
+    // sampled from the keepsake reference mock
+    static let keepsakeCard = Color(hex: "FDF6E3") // paler cream than background
+    static let keepsakeTape = Color(hex: "D9C49A") // washi tape tan
+    static let keepsakeDate = Color(hex: "A6512E") // warm terracotta "born …" line
+
     // MARK: - Fonts (Baloo 2 display + Nunito body, both SIL OFL)
 
     // The TTFs live in Jayla/Fonts/ and ship as plain bundle resources.
@@ -91,6 +97,13 @@ enum Theme {
                      relativeTo style: Font.TextStyle) -> Font {
         _ = fontsRegistered
         return .custom(weight.rawValue, size: size, relativeTo: style)
+    }
+
+    /// Handwritten font (Caveat, SIL OFL) — keepsake captions only:
+    /// "our Jayla 💛" and the "born …" line on the profile page.
+    static func handwritten(_ size: CGFloat, relativeTo style: Font.TextStyle) -> Font {
+        _ = fontsRegistered
+        return .custom("Caveat-Bold", size: size, relativeTo: style)
     }
 }
 

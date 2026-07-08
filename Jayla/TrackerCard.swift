@@ -23,37 +23,37 @@ struct TrackerCard: View {
     var onLog: () -> Void = {}
 
     // Glyphs sit next to scaling text, so they scale too. The SVGs are
-    // cropped tight (no built-in margins), so 48pt reads bigger than
-    // the old 56pt box did.
-    @ScaledMetric(relativeTo: .headline) private var iconSize = 48.0
+    // cropped tight (no built-in margins).
+    @ScaledMetric(relativeTo: .headline) private var iconSize = 34.0
     @ScaledMetric(relativeTo: .headline) private var plusSize = 28.0
 
+    // One row — icon · count · "+" — so the tile stays short and the
+    // whole dashboard fits the screen without scrolling.
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(alignment: .top) {
-                Image(type.icon)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: iconSize, height: iconSize)
-                    .accessibilityHidden(true)
+        HStack(spacing: 8) {
+            Image(type.icon)
+                .resizable()
+                .scaledToFit()
+                .frame(width: iconSize, height: iconSize)
+                .accessibilityHidden(true)
 
-                Spacer()
-
-                logButton
-            }
-
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
                 Text("\(count)")
-                    .font(Theme.display(36, relativeTo: .title))
+                    .font(Theme.display(30, relativeTo: .title2))
                     .foregroundStyle(type.countColor)
                 Text("today")
-                    .font(Theme.text(13, relativeTo: .caption))
+                    .font(Theme.text(12, relativeTo: .caption))
                     .foregroundStyle(Theme.softInk)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(type.label), \(count) today")
+
+            Spacer(minLength: 0)
+
+            logButton
         }
-        .padding(16)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.white, in: RoundedRectangle(cornerRadius: 22))
         .overlay(
@@ -75,7 +75,7 @@ struct TrackerCard: View {
                 .frame(width: plusSize, height: plusSize)
                 .background(type.inkColor, in: Circle())
                 // Keep the visual small but the touch target ≥ 44pt.
-                .frame(width: 44, height: 44, alignment: .topTrailing)
+                .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)

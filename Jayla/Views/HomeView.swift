@@ -2,16 +2,15 @@
 //  HomeView.swift
 //  Jayla
 //
-//  The "Today dashboard" (design 1a): photo + greeting header, a
-//  countdown hero card that owns the next-feed prediction, then a 2×2
-//  quick-log grid. Logging sits above the fold — the countdown and its
-//  cycle progress bar are the reward that keeps the logging loop going.
-//  Tapping the header photo opens the picker to replace the picture.
+//  The "Today dashboard" (design 1a): name header, a countdown hero
+//  card that owns the next-feed prediction, then a 2×2 quick-log grid.
+//  Logging sits above the fold — the countdown and its cycle progress
+//  bar are the reward that keeps the logging loop going. The photo
+//  lives on the profile tab.
 //
 
 import SwiftUI
 import SwiftData
-import PhotosUI
 
 struct HomeView: View {
     let baby: BabyProfile
@@ -19,7 +18,6 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dynamicTypeSize) private var typeSize
     @Query(sort: \ActivityEvent.timestamp, order: .reverse) private var events: [ActivityEvent]
-    @State private var pickerItem: PhotosPickerItem?
     // The running nap being backdated via the "since 2:40 · adjust" row.
     @State private var adjustingNap: ActivityEvent?
 
@@ -43,10 +41,6 @@ struct HomeView: View {
                 }
             }
         }
-        .onChange(of: pickerItem) { _, item in
-            guard let item else { return }
-            Task { await applyPickedPhoto(item) }
-        }
         .sheet(item: $adjustingNap) { nap in
             NapAdjustSheet(napStart: nap.timestamp) { newStart in
                 ActivityRepository(context: modelContext)
@@ -59,48 +53,19 @@ struct HomeView: View {
 
     // MARK: - Header
 
+    // Name only — the photo lives on the keepsake profile tab, and the
+    // vertical space it took goes to the cards below.
     private var header: some View {
-        HStack(spacing: 14) {
-            photoCircle
-            VStack(alignment: .leading, spacing: 1) {
-                Text(baby.name)
-                    .font(Theme.display(22, relativeTo: .title2))
-                    .foregroundStyle(Theme.ink)
-                Text(baby.ageDescription)
-                    .font(Theme.text(13, relativeTo: .footnote))
-                    .foregroundStyle(Theme.softInk)
-            }
-            .accessibilityElement(children: .combine)
+        VStack(alignment: .leading, spacing: 1) {
+            Text(baby.name)
+                .font(Theme.display(22, relativeTo: .title2))
+                .foregroundStyle(Theme.ink)
+            Text(baby.ageDescription)
+                .font(Theme.text(13, relativeTo: .footnote))
+                .foregroundStyle(Theme.softInk)
         }
+        .accessibilityElement(children: .combine)
         .padding(.top, 8)
-    }
-
-    // The photo is the one place to change the picture. Fixed size on
-    // purpose: it's an image, not text — Dynamic Type shouldn't inflate it.
-    private var photoCircle: some View {
-        PhotosPicker(selection: $pickerItem, matching: .images) {
-            Group {
-                if let data = baby.photoData, let image = Image(photoData: data) {
-                    image.resizable().scaledToFill()
-                } else {
-                    Circle()
-                        .fill(Theme.sleepBadge)
-                        .overlay(
-                            Image(systemName: "photo")
-                                .font(.system(size: 28))
-                                .foregroundStyle(Theme.sleepInk)
-                        )
-                }
-            }
-            .frame(width: 84, height: 84)
-            .clipShape(Circle())
-            .overlay(Circle().strokeBorder(.white, lineWidth: 3))
-            .cardShadow()
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(baby.photoData == nil
-            ? "Add a photo of \(baby.name)" : "\(baby.name)'s photo")
-        .accessibilityHint("Chooses a new photo")
     }
 
     // MARK: - Hero card
@@ -410,13 +375,6 @@ struct HomeView: View {
     private func wakeUp(_ nap: ActivityEvent) {
         ActivityRepository(context: modelContext).endNap(nap)
         Task { await Rescheduler.recomputeAndReschedule() }
-    }
-
-    private func applyPickedPhoto(_ item: PhotosPickerItem) async {
-        guard let data = try? await item.loadTransferable(type: Data.self),
-              let jpeg = PhotoProcessing.downscaledJPEG(from: data) else { return }
-        baby.photoData = jpeg
-        try? modelContext.save()
     }
 
     // MARK: - Formatting
