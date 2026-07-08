@@ -74,7 +74,7 @@ struct HistoryView: View {
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 6)
+                    .padding(.top, 18)
                     .padding(.bottom, 32)
                 }
                 // Same pinned brand bar as the home tab, in place of a

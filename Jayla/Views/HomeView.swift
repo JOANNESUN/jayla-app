@@ -36,7 +36,7 @@ struct HomeView: View {
                         quickLogGrid(now: timeline.date)
                     }
                     .padding(.horizontal, 20)
-                    .padding(.top, 6)
+                    .padding(.top, 18)
                     .padding(.bottom, 32)
                 }
                 // The header stays put while the cards scroll under it.

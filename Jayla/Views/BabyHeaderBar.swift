@@ -23,17 +23,17 @@ struct BabyHeaderBar: View {
                         .fill(.white)
                         .overlay(
                             Image(systemName: "photo")
-                                .font(.system(size: 14))
+                                .font(.system(size: 12))
                                 .foregroundStyle(Theme.accent)
                         )
                 }
             }
-            .frame(width: 36, height: 36)
+            .frame(width: 30, height: 30)
             .clipShape(Circle())
             .overlay(Circle().strokeBorder(.white, lineWidth: 2))
 
             Text(baby.name)
-                .font(Theme.display(20, relativeTo: .title3))
+                .font(Theme.display(18, relativeTo: .headline))
                 .foregroundStyle(Theme.ink)
             Text("· \(baby.ageDescription)")
                 .font(Theme.text(13, relativeTo: .footnote))
@@ -43,7 +43,7 @@ struct BabyHeaderBar: View {
         }
         .accessibilityElement(children: .combine)
         .padding(.horizontal, 20)
-        .padding(.vertical, 10)
+        .padding(.vertical, 6)
         // The bar paints up behind the status bar too, so the marigold
         // runs to the physical top of the screen.
         .background { Theme.headerBar.ignoresSafeArea(edges: .top) }
