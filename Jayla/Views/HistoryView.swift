@@ -81,6 +81,11 @@ struct HistoryView: View {
                             }
                             .onDelete { delete(at: $0, in: dayEvents) }
                         }
+
+                        if let trends = DayLog.trends(days: days) {
+                            trendsCard(trends)
+                                .padding(.top, 10)
+                        }
                     }
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -148,6 +153,134 @@ struct HistoryView: View {
             ? "no sleep logged" : "slept \(Format.duration(summary.sleepTotal))"
         return "\(slept), \(summary.feedCount) feeds, "
             + "\(summary.peeCount) pee, \(summary.poopCount) poop"
+    }
+
+    // MARK: - Trends
+
+    /// The insights layer, from Joanne's comp: weekly sleep average +
+    /// direction, four week bars, a gentle narrative line, and per-day
+    /// frequencies. Frequencies only — Jayla logs moments, not volumes.
+    private func trendsCard(_ trends: TrendSummary) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("HER MONTH")
+                .font(Theme.text(12, .black, relativeTo: .caption))
+                .tracking(1.5)
+                .foregroundStyle(Theme.softInk)
+
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(trends.avgSleepPerDay > 0
+                    ? Format.duration(trends.avgSleepPerDay) : "—")
+                    .font(Theme.display(30, relativeTo: .title))
+                    .foregroundStyle(Theme.sleepInk)
+                if let arrow = directionArrow(trends.direction) {
+                    Image(systemName: arrow)
+                        .font(.system(.subheadline, weight: .heavy))
+                        .foregroundStyle(Theme.sleepInk)
+                }
+                Text("sleep a day this week")
+                    .font(Theme.text(13, relativeTo: .footnote))
+                    .foregroundStyle(Theme.softInk)
+            }
+
+            weekBars(trends.weeks)
+
+            Text(narrative(for: trends))
+                .font(Theme.text(12, relativeTo: .caption))
+                .foregroundStyle(Theme.softInk)
+                .italic()
+
+            Rectangle()
+                .fill(Theme.background)
+                .frame(height: 2)
+
+            HStack(spacing: 18) {
+                stat(icon: ActivityType.feed.mascot,
+                     value: perDay(trends.feedsPerDay), color: Theme.feedInk)
+                stat(icon: ActivityType.pee.icon,
+                     value: perDay(trends.peePerDay), color: Theme.peeCount)
+                stat(icon: ActivityType.poop.icon,
+                     value: perDay(trends.poopPerDay), color: Theme.poopInk)
+                Spacer()
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white)
+        .clipShape(RoundedRectangle(cornerRadius: 28))
+        .cardShadow()
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(trendsAccessibilityLabel(trends))
+    }
+
+    /// One bar per week (oldest left), height ∝ that week's average
+    /// sleep. The current week draws solid; earlier weeks fade back.
+    private func weekBars(_ weeks: [WeekStat]) -> some View {
+        let maxSleep = max(weeks.map(\.avgSleep).max() ?? 1, 1)
+        return HStack(alignment: .bottom, spacing: 12) {
+            ForEach(weeks) { week in
+                VStack(spacing: 4) {
+                    Capsule()
+                        .fill(Theme.sleepInk.opacity(
+                            week.index == weeks.count - 1 ? 1 : 0.35))
+                        .frame(width: 26,
+                               height: max(4, 56 * week.avgSleep / maxSleep))
+                    Text(weekLabel(week.index, of: weeks.count))
+                        .font(Theme.text(10, relativeTo: .caption2))
+                        .foregroundStyle(Theme.softInk)
+                }
+            }
+        }
+        .frame(height: 76, alignment: .bottom)
+    }
+
+    private func weekLabel(_ index: Int, of count: Int) -> String {
+        index == count - 1 ? "now" : "\(count - 1 - index)w"
+    }
+
+    private func directionArrow(_ direction: TrendSummary.Direction) -> String? {
+        switch direction {
+        case .up:      "arrow.up.right"
+        case .down:    "arrow.down.right"
+        case .steady:  "arrow.right"
+        case .unknown: nil
+        }
+    }
+
+    /// The interpretation line — descriptive and hedged, never a
+    /// verdict. Same voice as "her sleepy cues beat the clock".
+    private func narrative(for trends: TrendSummary) -> String {
+        switch trends.direction {
+        case .up where trends.napsConsolidating:
+            "sleep is lengthening and naps are consolidating"
+        case .up:
+            "she's sleeping a little more than last week"
+        case .steady where trends.napsConsolidating:
+            "naps are consolidating into fewer, longer stretches"
+        case .steady:
+            "her rhythm is holding steady"
+        case .down:
+            "a little less sleep than last week — spurts and leaps do this"
+        case .unknown:
+            "still learning her weekly rhythm"
+        }
+    }
+
+    /// "5.3 a day" — one decimal, trailing .0 dropped.
+    private func perDay(_ value: Double) -> String {
+        let rounded = (value * 10).rounded() / 10
+        let text = rounded == rounded.rounded()
+            ? String(Int(rounded)) : String(format: "%.1f", rounded)
+        return "\(text) a day"
+    }
+
+    private func trendsAccessibilityLabel(_ trends: TrendSummary) -> String {
+        var label = trends.avgSleepPerDay > 0
+            ? "This week she sleeps \(Format.duration(trends.avgSleepPerDay)) a day. "
+            : ""
+        label += narrative(for: trends) + ". "
+        label += "\(perDay(trends.feedsPerDay)) feeds, "
+            + "\(perDay(trends.peePerDay)) pees, \(perDay(trends.poopPerDay)) poops."
+        return label
     }
 
     private func eventRow(_ event: ActivityEvent, now: Date) -> some View {

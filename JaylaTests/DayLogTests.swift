@@ -199,6 +199,69 @@ test("DST spring-forward day still splits at real midnights") {
     expectNear(total, 9 * hour, "no minutes lost or invented across DST")
 }
 
+test("trends: nil until two days have data") {
+    let days = DayLog.build(
+        events: [moment(.feed, at: date(2026, 7, 7, 9, 0))],
+        now: date(2026, 7, 7, 12, 0), daysBack: 30, calendar: cal)
+    expect(DayLog.trends(days: days) == nil, "one tracked day → no trends")
+}
+
+test("trends: lengthening sleep reads as up, averages are right") {
+    // Two full weeks: 10h/day sleep, then 12h/day → up.
+    var events: [DayLog.Event] = []
+    let now = date(2026, 7, 7, 12, 0)
+    for back in 1...14 {
+        let day = cal.date(byAdding: .day, value: -back, to: cal.startOfDay(for: now))!
+        let hours: Double = back <= 7 ? 12 : 10
+        events.append(sleep(at: day.addingTimeInterval(8 * hour), hours: hours))
+        events.append(moment(.feed, at: day.addingTimeInterval(9 * hour)))
+        events.append(moment(.feed, at: day.addingTimeInterval(15 * hour)))
+        events.append(moment(.pee, at: day.addingTimeInterval(10 * hour)))
+    }
+    let days = DayLog.build(events: events, now: now, daysBack: 30, calendar: cal)
+    let trends = DayLog.trends(days: days)!
+    expect(trends.direction == .up, "12h vs 10h is up")
+    expectNear(trends.avgSleepPerDay, 12 * hour, tolerance: 60,
+               "latest week averages 12h")
+    expectNear(trends.feedsPerDay, 2, tolerance: 0.01, "2 feeds/day")
+    expectNear(trends.peePerDay, 1, tolerance: 0.01, "1 pee/day")
+    expectNear(trends.poopPerDay, 0, tolerance: 0.01, "0 poop/day")
+    expect(trends.weeks.count == 4, "four week buckets over 28 days")
+}
+
+test("trends: under 3 sleep-days in a week → direction unknown") {
+    var events: [DayLog.Event] = []
+    let now = date(2026, 7, 7, 12, 0)
+    for back in [1, 2, 3, 9] {   // latest week 3 days, previous only 1
+        let day = cal.date(byAdding: .day, value: -back, to: cal.startOfDay(for: now))!
+        events.append(sleep(at: day.addingTimeInterval(8 * hour), hours: 10))
+    }
+    let trends = DayLog.trends(days: DayLog.build(events: events, now: now,
+                                                  daysBack: 30, calendar: cal))!
+    expect(trends.direction == .unknown, "1 sleep-day last week can't anchor a trend")
+    expect(!trends.napsConsolidating, "no consolidation claim either")
+}
+
+test("trends: fewer, longer sleeps flag consolidation") {
+    var events: [DayLog.Event] = []
+    let now = date(2026, 7, 7, 12, 0)
+    for back in 1...14 {
+        let day = cal.date(byAdding: .day, value: -back, to: cal.startOfDay(for: now))!
+        if back <= 7 {   // latest week: 2 sleeps totalling 11h
+            events.append(sleep(at: day.addingTimeInterval(9 * hour), hours: 2))
+            events.append(sleep(at: day.addingTimeInterval(13 * hour), hours: 9))
+        } else {         // previous week: 4 sleeps totalling 10h
+            for (h, len) in [(8.0, 2.0), (11.0, 2.0), (14.0, 3.0), (18.0, 3.0)] {
+                events.append(sleep(at: day.addingTimeInterval(h * hour), hours: len))
+            }
+        }
+    }
+    let trends = DayLog.trends(days: DayLog.build(events: events, now: now,
+                                                  daysBack: 30, calendar: cal))!
+    expect(trends.napsConsolidating, "4 → 2 sleeps/day with more total sleep")
+    expect(trends.direction == .up, "and the direction is up")
+}
+
 // MARK: - Summary
 
         print("")

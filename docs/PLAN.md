@@ -292,9 +292,18 @@ Each phase is independently shippable.
   lands on the day it was slept; `./JaylaTests/run-daylog.sh`). The
   open nap draws as a growing gradient ribbon, counted live. Navigation
   is a minimal 2-tab TabView (Today / History) in ContentView. Shared
-  time strings extracted to `Utilities/Formatters.swift`. Deferred to
-  iteration 2: scroll-back past 30 days, editing times from history,
-  stats/insights.
+  time strings extracted to `Utilities/Formatters.swift`.
+  *Trends module (from Joanne's design comp):* a "Her month" card under
+  the day detail — latest week's average sleep/day with a direction
+  arrow (±5% band, needs ≥3 sleep-days in both weeks to claim a
+  direction), four weekly bars, a hedged narrative line ("sleep is
+  lengthening and naps are consolidating" — descriptive, never a
+  verdict, no "on track" claims), and per-day frequencies for
+  feed/pee/poop over the last 7 tracked days. Frequencies only by
+  Joanne's call — Jayla logs moments, not volumes, so no ml/day.
+  Pure math in `DayLog.trends`, covered by run-daylog.sh.
+  Deferred to iteration 2: scroll-back past 30 days, editing times
+  from history.
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like
