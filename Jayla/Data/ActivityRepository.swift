@@ -135,4 +135,15 @@ final class ActivityRepository {
         context.delete(last)
         try? context.save()
     }
+
+    /// Remove a mis-log — the history list's swipe-to-delete. Callers
+    /// must reschedule after deleting a feed or sleep (same contract as
+    /// logging one).
+    func delete(_ event: ActivityEvent) {
+        #if DEBUG
+        print("🗑 [Jayla] Deleted \(event.type.label) from \(event.timestamp.formatted(date: .abbreviated, time: .standard))")
+        #endif
+        context.delete(event)
+        try? context.save()
+    }
 }

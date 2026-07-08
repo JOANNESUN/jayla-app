@@ -276,6 +276,25 @@ Each phase is independently shippable.
   rolls to 0 at midnight for free. Timestamps are still stored per
   event for the future analysis tab. Visual treatment iterated in-place
   on the branch (see its commits for the current styling).
+- [x] **History page (branch `history-page`).** The analysis tab, iteration 1.
+  Market research (Huckleberry's Day/Week/List/Summary sprawl, Nara's
+  "data is an ongoing reference" study, classic infant actograms)
+  converged on ONE page answering the three questions parents bring to
+  history: *is a rhythm forming* → a 24h day-column **pattern chart**
+  (sleep as ribbons, feeds as dots, pee/poop daily counts under each
+  column, 30 days, opens scrolled to today); *what exactly happened* →
+  tap a column for that day's chronological event list (swipe-to-delete
+  = the correction surface; deleting a feed/sleep goes through the
+  Rescheduler choke point like logging one); *how much / how many* →
+  the day totals row (daily sleep total lands here as promised; wet
+  diapers per day is the number pediatricians ask for). Sleeps are
+  split at midnight (`DayLog.swift`, pure Foundation — every minute
+  lands on the day it was slept; `./JaylaTests/run-daylog.sh`). The
+  open nap draws as a growing gradient ribbon, counted live. Navigation
+  is a minimal 2-tab TabView (Today / History) in ContentView. Shared
+  time strings extracted to `Utilities/Formatters.swift`. Deferred to
+  iteration 2: scroll-back past 30 days, editing times from history,
+  stats/insights.
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like

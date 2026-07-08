@@ -145,7 +145,7 @@ struct HomeView: View {
                         cycleBar(lastFeed: lastFeed, prediction: nextFeed, now: now)
                             .padding(.top, 16)
                         HStack {
-                            Text("\(ActivityType.feed.pastTense) \(humanTime(since: lastFeed.timestamp, now: now))")
+                            Text("\(ActivityType.feed.pastTense) \(Format.humanTime(since: lastFeed.timestamp, now: now))")
                             Spacer()
                             Text(cycleText(nextFeed.expectedInterval))
                         }
@@ -239,7 +239,7 @@ struct HomeView: View {
     /// isn't confident yet. Once the time has passed, it's a past fact:
     /// "expected around 10:52 PM".
     private func statusLine(for prediction: Prediction, overdue: Bool) -> String {
-        "\(overdue ? "expected around" : "around") \(timeText(prediction.nextTime))"
+        "\(overdue ? "expected around" : "around") \(Format.time(prediction.nextTime))"
             + caveat(prediction.confidence)
     }
 
@@ -263,7 +263,7 @@ struct HomeView: View {
         case .roughly:   caveat = ", rough guess"
         case .learning:  caveat = ", still learning"
         }
-        return "Next feed around \(timeText(prediction.nextTime))\(caveat). "
+        return "Next feed around \(Format.time(prediction.nextTime))\(caveat). "
             + "\(spokenCountdown(to: prediction.nextTime, from: now)). "
             + "Jayla will remind you."
     }
@@ -283,7 +283,7 @@ struct HomeView: View {
             durationEstimate: napDurationEstimate(now: now),
             nextNap: nap == nil ? prediction(for: .sleep, now: now) : nil,
             lastSleptText: lastEvent(.sleep).map {
-                "\(ActivityType.sleep.pastTense) \(humanTime(since: $0.timestamp, now: now))"
+                "\(ActivityType.sleep.pastTense) \(Format.humanTime(since: $0.timestamp, now: now))"
             },
             justWokeDuration: nap == nil ? justWokeNap(now: now)?.durationSeconds : nil,
             onStartNap: { log(.sleep) },
@@ -420,25 +420,6 @@ struct HomeView: View {
     }
 
     // MARK: - Formatting
-
-    private func timeText(_ date: Date) -> String {
-        date.formatted(date: .omitted, time: .shortened)
-    }
-
-    /// Coarse, calm relative time: "just now" under a minute, then
-    /// minutes/hours — never ticking seconds, never "Last now".
-    private func humanTime(since date: Date, now: Date) -> String {
-        let seconds = now.timeIntervalSince(date)
-        if seconds < 60 { return "just now" }
-        let minutes = Int(seconds / 60)
-        if minutes < 60 { return "\(minutes) min ago" }
-        let hours = minutes / 60
-        let rest = minutes % 60
-        if hours < 24 {
-            return rest == 0 ? "\(hours)h ago" : "\(hours)h \(rest)m ago"
-        }
-        return date.formatted(date: .abbreviated, time: .shortened)
-    }
 
     /// heroCountdown spelled out for VoiceOver — "1h 5m" reads as
     /// letters, "in 1 hour 5 minutes" reads as time.

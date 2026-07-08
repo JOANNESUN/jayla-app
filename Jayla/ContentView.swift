@@ -5,7 +5,7 @@
 //  Created by JO on 2/7/2026.
 //
 //  Root router: first launch (no BabyProfile) shows onboarding; after
-//  that, the home dashboard.
+//  that, two tabs — the Today dashboard and the history page.
 //
 
 import SwiftUI
@@ -13,10 +13,29 @@ import SwiftData
 
 struct ContentView: View {
     @Query private var profiles: [BabyProfile]
+    @State private var tab = ContentView.initialTab
+
+    // Dev-only: JAYLA_OPEN_HISTORY=1 launches straight into the history
+    // tab so headless simulator runs can read its console dump.
+    private static var initialTab: Int {
+        #if DEBUG
+        ProcessInfo.processInfo.environment["JAYLA_OPEN_HISTORY"] == "1" ? 1 : 0
+        #else
+        0
+        #endif
+    }
 
     var body: some View {
         if let baby = profiles.first {
-            HomeView(baby: baby)
+            TabView(selection: $tab) {
+                HomeView(baby: baby)
+                    .tabItem { Label("Today", systemImage: "sun.max.fill") }
+                    .tag(0)
+                HistoryView()
+                    .tabItem { Label("History", systemImage: "calendar") }
+                    .tag(1)
+            }
+            .tint(Theme.accent)
         } else {
             OnboardingView()
         }
