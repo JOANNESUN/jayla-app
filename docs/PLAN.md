@@ -161,6 +161,10 @@ Consequences:
   `source == "notification"` event exists within ~2 minutes.
 - **Permission denied?** The app stays a fully functional manual tracker —
   in-app predictions and countdown still work; only the push is lost.
+  Home shows a recovery banner (`NotificationsOffBanner`) only while
+  status is `.denied` — iOS never allows a re-ask, so the banner
+  deep-links straight to Jayla's notification settings page and the
+  status is re-checked on every return to foreground.
 
 ## Build phases
 

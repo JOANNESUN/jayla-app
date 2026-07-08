@@ -11,15 +11,20 @@
 
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 struct HomeView: View {
     let baby: BabyProfile
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \ActivityEvent.timestamp, order: .reverse) private var events: [ActivityEvent]
     // The running nap being backdated via the "since 2:40 · adjust" row.
     @State private var adjustingNap: ActivityEvent?
+    // True only when the user explicitly turned notifications off in
+    // Settings — drives the recovery banner above the hero card.
+    @State private var notificationsDenied = false
 
     var body: some View {
         ZStack {
@@ -31,6 +36,9 @@ struct HomeView: View {
             TimelineView(.everyMinute) { timeline in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
+                        if notificationsDenied {
+                            NotificationsOffBanner()
+                        }
                         heroCard(now: timeline.date)
                         sleepSection(now: timeline.date)
                         quickLogGrid(now: timeline.date)
@@ -42,6 +50,13 @@ struct HomeView: View {
                 // The header stays put while the cards scroll under it.
                 .safeAreaInset(edge: .top, spacing: 0) { BabyHeaderBar(baby: baby) }
             }
+        }
+        // Check on launch AND every return to foreground — the banner's
+        // whole job is reacting to what the user just did in Settings.
+        .task { await refreshNotificationStatus() }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await refreshNotificationStatus() }
         }
         .sheet(item: $adjustingNap) { nap in
             NapAdjustSheet(napStart: nap.timestamp) { newStart in
@@ -244,6 +259,7 @@ struct HomeView: View {
             onAdjust: { adjustingNap = openNap(now: .now) },
             onUndoWake: {
                 guard let nap = justWokeNap(now: .now) else { return }
+                Haptics.tap()
                 ActivityRepository(context: modelContext).reopenNap(nap)
                 Task { await Rescheduler.recomputeAndReschedule() }
             }
@@ -334,7 +350,13 @@ struct HomeView: View {
         )
     }
 
+    private func refreshNotificationStatus() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        notificationsDenied = settings.authorizationStatus == .denied
+    }
+
     private func log(_ type: ActivityType) {
+        Haptics.tap()
         let repo = ActivityRepository(context: modelContext)
         switch type {
         case .sleep:
@@ -358,6 +380,9 @@ struct HomeView: View {
     }
 
     private func wakeUp(_ nap: ActivityEvent) {
+        // The nap's "success" buzz — the one log action that completes
+        // something rather than starting it.
+        Haptics.success()
         ActivityRepository(context: modelContext).endNap(nap)
         Task { await Rescheduler.recomputeAndReschedule() }
     }
