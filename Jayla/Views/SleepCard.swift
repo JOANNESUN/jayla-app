@@ -6,12 +6,13 @@
 //  feed), so it gets a full-width card instead of a quick-log tile.
 //  Two states, driven by whether a nap is open:
 //
-//  awake  → "NEXT NAP" + bell (a reminder is pending), the prediction,
-//           and a Start nap pill
-//  asleep → a progress ring (elapsed vs predicted duration), the wake
-//           estimate, a backdate row, and a Wake up pill. NO bell —
-//           the wake estimate is display-only by design; Jayla never
-//           pings during a nap.
+//  awake  → "LOW BATTERY" + bell (a reminder is pending), the nap
+//           window, and a Start nap pill ("WIDE AWAKE" right after
+//           a wake)
+//  asleep → "DO NOT DISTURB": a progress ring (elapsed vs predicted
+//           duration), the wake estimate, a backdate row, and a Wake
+//           up pill. NO bell — the wake estimate is display-only by
+//           design; Jayla never pings during a nap.
 //
 //  Takes plain values + closures; HomeView owns the data and actions.
 //
@@ -70,7 +71,7 @@ struct SleepCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
-                        Text("SLEEPING")
+                        Text("DO NOT DISTURB")
                             .font(Theme.text(12, .black, relativeTo: .caption))
                             .tracking(1.5)
                             .foregroundStyle(Theme.sleepInk)
@@ -149,7 +150,7 @@ struct SleepCard: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text(justWokeDuration == nil ? "NEXT NAP" : "SHE'S AWAKE")
+                    Text(justWokeDuration == nil ? "LOW BATTERY 🪫" : "WIDE AWAKE ☀️")
                         .font(Theme.text(12, .black, relativeTo: .caption))
                         .tracking(1.5)
                         .foregroundStyle(Theme.sleepInk)

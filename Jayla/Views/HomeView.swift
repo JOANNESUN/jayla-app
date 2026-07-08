@@ -70,7 +70,7 @@ struct HomeView: View {
             // as separate stops. The log button below stays its own stop.
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
-                    Text("NEXT FEED")
+                    Text("HUNGRY IN…")
                         .font(Theme.text(12, .black, relativeTo: .caption))
                         .tracking(1.5)
                         .foregroundStyle(Theme.feedInk)
