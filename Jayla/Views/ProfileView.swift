@@ -3,11 +3,13 @@
 //  Jayla
 //
 //  The third tab: Jayla herself, as a keepsake — a cream card holding
-//  a taped-down polaroid (tap the photo to change it), a handwritten
-//  caption, her birth date and age. Tapping the caption or the date
-//  opens one small sheet to edit name and birthday. Changes autosave;
-//  there is no Save button to forget at 3am. Birthday edits reschedule
-//  reminders, because the age band drives the prediction priors.
+//  a taped-down polaroid (tap the photo to change it, ♡ for a chin),
+//  her name big underneath with an age pill and a born · zodiac line.
+//  Tapping any of it opens one small sheet to edit name and birthday.
+//  Changes autosave; there is no Save button to forget at 3am. Birthday
+//  edits reschedule reminders, because the age band drives the
+//  prediction priors. Below the keepsake sits the forecast card — the
+//  prediction engine wearing its weather-channel costume.
 //
 
 import SwiftUI
@@ -18,6 +20,7 @@ struct ProfileView: View {
     @Bindable var baby: BabyProfile
 
     @Environment(\.modelContext) private var modelContext
+    @Query(sort: \ActivityEvent.timestamp, order: .reverse) private var events: [ActivityEvent]
     @State private var pickerItem: PhotosPickerItem?
     @State private var isEditing = false
 
@@ -25,11 +28,20 @@ struct ProfileView: View {
         ZStack {
             Theme.background.ignoresSafeArea()
 
-            ScrollView {
-                keepsakeCard
+            // everyMinute keeps the forecast's "now" honest while the
+            // page is open; logging elsewhere refreshes via @Query.
+            TimelineView(.everyMinute) { timeline in
+                ScrollView {
+                    VStack(spacing: 18) {
+                        keepsakeCard
+                        ForecastCard(babyName: baby.name,
+                                     forecast: forecast(now: timeline.date),
+                                     now: timeline.date)
+                    }
                     .padding(.horizontal, 20)
                     .padding(.top, 24)
                     .padding(.bottom, 32)
+                }
             }
         }
         .onChange(of: pickerItem) { _, item in
@@ -58,22 +70,32 @@ struct ProfileView: View {
                 .padding(.top, 40)
                 .padding(.bottom, 30)
 
-            // The date and age read as one keepsake line; tapping either
-            // opens the same edit sheet as the caption.
+            // Name front and center, magazine-cover style: big name,
+            // age pill, then one small born · zodiac line. All of it is
+            // one tap target for the same edit sheet.
             Button {
                 isEditing = true
             } label: {
-                VStack(spacing: 2) {
-                    Text("born \(baby.birthdate.formatted(.dateTime.day().month(.wide).year()))")
-                        .font(Theme.handwritten(30, relativeTo: .title2))
-                        .foregroundStyle(Theme.keepsakeDate)
-                    Text(baby.keepsakeAge)
-                        .font(Theme.text(15, .extraBold, relativeTo: .subheadline))
+                VStack(spacing: 10) {
+                    Text(baby.name)
+                        .font(Theme.display(34, relativeTo: .largeTitle))
+                        .foregroundStyle(Theme.ink)
+                    HStack(spacing: 6) {
+                        Text("🎂")
+                        Text(baby.keepsakeAge)
+                            .font(Theme.text(14, .extraBold, relativeTo: .subheadline))
+                            .foregroundStyle(Theme.keepsakeDate)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 7)
+                    .background(Theme.background, in: Capsule())
+                    Text("born \(baby.birthdate.formatted(.dateTime.day().month(.wide).year())) · \(baby.zodiacSign)")
+                        .font(Theme.text(13, relativeTo: .footnote))
                         .foregroundStyle(Theme.softInk)
                 }
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Born \(baby.birthdate.formatted(date: .long, time: .omitted)). \(baby.keepsakeAge)")
+            .accessibilityLabel("\(baby.name). \(baby.keepsakeAge). Born \(baby.birthdate.formatted(date: .long, time: .omitted)), \(baby.zodiacSign)")
             .accessibilityHint("Edits her name and birthday")
         }
         .frame(maxWidth: .infinity)
@@ -88,11 +110,12 @@ struct ProfileView: View {
         VStack(spacing: 8) {
             photoArea
 
-            // The chin caption — tap to edit her name.
+            // The chin keeps just a handwritten heart — the name moved
+            // below the polaroid, big. Still a tap target for the sheet.
             Button {
                 isEditing = true
             } label: {
-                Text("our \(baby.name) 💛")
+                Text("♡")
                     .font(Theme.handwritten(30, relativeTo: .title2))
                     .foregroundStyle(Theme.ink)
             }
@@ -164,6 +187,22 @@ struct ProfileView: View {
                               style: StrokeStyle(lineWidth: 2, dash: [6, 5]))
                 .padding(7)
         )
+    }
+
+    // MARK: - Forecast
+
+    /// Same event plumbing as HomeView, funnelled through the adapter —
+    /// the forecast card shows the home screen's predictions, restyled.
+    private func forecast(now: Date) -> ForecastEngine.Forecast? {
+        ForecastEngine.forecast(.build(
+            feedTimestamps: events
+                .filter { $0.typeRaw == ActivityType.feed.rawValue }
+                .map(\.timestamp),
+            sleeps: events
+                .filter { $0.typeRaw == ActivityType.sleep.rawValue }
+                .map { (start: $0.timestamp, duration: $0.durationSeconds) },
+            ageBand: baby.ageBand,
+            now: now))
     }
 
     private func applyPickedPhoto(_ item: PhotosPickerItem) async {

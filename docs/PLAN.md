@@ -322,6 +322,24 @@ Each phase is independently shippable.
   `JAYLA_OPEN_TAB=history|history-month|profile` opens any page
   headlessly. Deferred: scroll-back past 30 days, editing/deleting
   events from history.
+- [x] **Keepsake pass 2 + Jayla Forecast (branch `history-page`).**
+  Profile lower half restyled magazine-cover style: polaroid keeps just
+  a handwritten ♡ chin, then big name → age pill (🎂 keepsakeAge) →
+  one small `born … · zodiac` line (zodiac derived from the birthday,
+  `BabyProfile.zodiacSign` — never stored). Weight/height tiles
+  considered and dropped: manual entry that goes stale fights one-tap
+  minimalism. Below the keepsake card, the **forecast card**
+  (`Views/ForecastCard.swift`) — the nursery weather channel: current
+  mood + feels-like, a five-hour outlook strip (😴🍼🌧☀️🌙), and a fuss
+  warning. Pure `Prediction/ForecastEngine.swift` walks the existing
+  predictions forward (feeds at the learned gap, naps at the learned
+  start-to-start spacing, sleep ≥7pm reads "bed"); **fussy is inferred,
+  never logged** — the ≤30 min build-up before predicted relief (feed
+  or nap). Honesty carries over: overdue feeds sit at "now", nothing
+  clamps, and while both predictions are `.learning` the card says
+  "still learning her rhythm". Display-only — never logs or notifies.
+  Engine covered by ForecastEngineTests in `run.sh` (fixed UTC calendar
+  so the bedtime assertion can't drift with the machine's timezone).
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like
