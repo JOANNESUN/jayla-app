@@ -148,6 +148,14 @@ struct SleepCard: View {
                     .font(Theme.display(28, relativeTo: .title))
                     .foregroundStyle(Theme.ink)
                     .fixedSize(horizontal: false, vertical: true)
+
+                // The wake pays off with the nap it just closed — "was it
+                // a good one?" is the first question after every wake.
+                if let justWokeDuration {
+                    Text("slept \(Format.duration(justWokeDuration))")
+                        .font(Theme.text(14, relativeTo: .subheadline))
+                        .foregroundStyle(Theme.softInk)
+                }
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(awakeAccessibilityLabel)
@@ -297,6 +305,9 @@ struct SleepCard: View {
             return "\(gender.subject.capitalized)'s awake. Log the first nap to start predictions."
         }
         var label = "Awake for \(Format.duration(now.timeIntervalSince(awakeSince)))."
+        if let justWokeDuration {
+            label += " Slept \(Format.duration(justWokeDuration))."
+        }
         if let nextNap {
             label += nextNap.nextTime > now
                 ? " Likely tired by \(Format.time(nextNap.nextTime)). Jayla will remind you."
