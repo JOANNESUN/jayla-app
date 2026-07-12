@@ -287,8 +287,7 @@ private struct EditDetailsSheet: View {
                         .font(Theme.text(15, relativeTo: .subheadline))
                         .foregroundStyle(Theme.softInk)
                     Spacer()
-                    genderPill(.girl)
-                    genderPill(.boy)
+                    GenderPills(gender: $baby.gender)
                 }
                 .padding(.vertical, 12)
             }
@@ -314,33 +313,6 @@ private struct EditDetailsSheet: View {
         }
         .presentationDetents([.height(360)])
         .presentationBackground(Theme.background)
-    }
-
-    /// The gender tab: two pills, girl fills blossom pink and boy fills
-    /// sky blue — the feed and sleep palettes moonlighting.
-    private func genderPill(_ gender: Gender) -> some View {
-        let selected = baby.gender == gender
-        let ink = gender == .girl ? Theme.feedInk : Theme.sleepInk
-        let badge = gender == .girl ? Theme.feedBadge : Theme.sleepBadge
-        return Button {
-            guard baby.gender != gender else { return }
-            baby.gender = gender
-            Haptics.tap()
-        } label: {
-            Text(gender == .girl ? "Girl" : "Boy")
-                .font(Theme.text(14, .extraBold, relativeTo: .subheadline))
-                .foregroundStyle(selected ? ink : Theme.softInk)
-                .padding(.horizontal, 18)
-                .frame(minHeight: 34)
-                .background(selected ? badge : .white, in: Capsule())
-                .overlay(
-                    Capsule().strokeBorder(
-                        selected ? ink : Theme.softInk.opacity(0.35),
-                        lineWidth: selected ? 1.5 : 1)
-                )
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 
