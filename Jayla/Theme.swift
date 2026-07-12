@@ -38,8 +38,10 @@ enum Theme {
     static let feedInk    = Color(hex: "FF6FAE")   // vibrant blossom pink
 
     // Sleep — blue
-    static let sleepBadge = Color(hex: "DDF0FF")   // soft sky blue background
-    static let sleepInk   = Color(hex: "4DA6FF")   // vibrant sky blue
+    static let sleepBadge  = Color(hex: "DDF0FF")   // soft sky blue background
+    static let sleepInk    = Color(hex: "4DA6FF")   // vibrant sky blue
+    static let sleepAccent = Color(hex: "2E6FD6")   // deep blue — DND label + headline
+                                                    // numbers, the blue twin of awakeAccent
 
     // Awake — the gold Start-nap pill is the sunny cue that sets the
     // (white) awake card apart from the blue asleep card at a glance.
