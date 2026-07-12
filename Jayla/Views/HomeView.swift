@@ -107,7 +107,7 @@ struct HomeView: View {
             // as separate stops. The log button below stays its own stop.
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
-                    Text("HUNGRY IN…")
+                    Text("HUNGRY AT…")
                         .font(Theme.text(12, .black, relativeTo: .caption))
                         .tracking(1.5)
                         .foregroundStyle(Theme.feedInk)
@@ -119,12 +119,17 @@ struct HomeView: View {
                 }
 
                 if let nextFeed {
-                    Text(heroCountdown(to: nextFeed.nextTime, from: now))
+                    // Time leads now — parents read a clock time faster than
+                    // "hours from now", so the big line is the "when" and the
+                    // countdown drops to the honest small print beneath it.
+                    Text(heroHeadline(to: nextFeed.nextTime, from: now, overdue: overdue))
                         .font(overdue ? Theme.display(30, relativeTo: .title)
                                       : Theme.display(52, relativeTo: .largeTitle))
                         .foregroundStyle(Theme.accent)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .padding(.top, 4)
-                    Text(statusLine(for: nextFeed, overdue: overdue))
+                    Text(heroSubline(for: nextFeed, overdue: overdue, now: now))
                         .font(Theme.text(14, relativeTo: .subheadline))
                         .foregroundStyle(Theme.softInk)
 
@@ -168,6 +173,13 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             .padding(.top, 16)
+
+            // Make the long-press undo discoverable — real users had no way
+            // to find it. VoiceOver already has the custom action above, so
+            // the caption stays silent to avoid a redundant stop.
+            UndoHint()
+                .frame(maxWidth: .infinity)
+                .padding(.top, 8)
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -215,8 +227,26 @@ struct HomeView: View {
         return "~\(minutes)m cycle"
     }
 
-    /// The big number: "1h 5m" / "12m" — or "any time now" once the
-    /// predicted time has passed (predictions are honest, not clamped).
+    /// The big line: the predicted clock time ("10:52 PM"), or "any time
+    /// now" once that time has passed (predictions are honest, not clamped).
+    private func heroHeadline(to date: Date, from now: Date, overdue: Bool) -> String {
+        overdue ? "any time now" : Format.time(date)
+    }
+
+    /// The small print under the time: the countdown while we're waiting
+    /// ("in about 1h 5m"), or a past fact once overdue ("expected around
+    /// 10:52 PM"). The gentle caveat rides along until the engine is sure.
+    private func heroSubline(for prediction: Prediction, overdue: Bool, now: Date) -> String {
+        if overdue {
+            return "expected around \(Format.time(prediction.nextTime))"
+                + caveat(prediction.confidence)
+        }
+        return "in about \(heroCountdown(to: prediction.nextTime, from: now))"
+            + caveat(prediction.confidence)
+    }
+
+    /// The countdown text ("1h 5m" / "12m") that now rides in the subline —
+    /// or "any time now" (only reached via the overdue path above).
     private func heroCountdown(to date: Date, from now: Date) -> String {
         let remaining = date.timeIntervalSince(now)
         guard remaining > 60 else { return "any time now" }
@@ -227,14 +257,6 @@ struct HomeView: View {
             return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
         }
         return "\(minutes)m"
-    }
-
-    /// "around 10:52 PM", with a gentle caveat only while the engine
-    /// isn't confident yet. Once the time has passed, it's a past fact:
-    /// "expected around 10:52 PM".
-    private func statusLine(for prediction: Prediction, overdue: Bool) -> String {
-        "\(overdue ? "expected around" : "around") \(Format.time(prediction.nextTime))"
-            + caveat(prediction.confidence)
     }
 
     /// The gentle honesty suffix, shown only while the engine isn't

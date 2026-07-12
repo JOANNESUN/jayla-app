@@ -168,8 +168,14 @@ struct SleepCard: View {
                 if let nextNap {
                     Text((justWokeDuration == nil ? "" : "next nap ")
                         + nextNapText(nextNap))
-                        .font(Theme.text(14, relativeTo: .subheadline))
+                        // Lead with the nap time when we're just waiting;
+                        // stay secondary right after a wake, where the big
+                        // "slept …" summary is the headline.
+                        .font(justWokeDuration == nil
+                              ? Theme.display(20, relativeTo: .title3)
+                              : Theme.text(14, relativeTo: .subheadline))
                         .foregroundStyle(Theme.ink)
+                        .padding(.top, justWokeDuration == nil ? 2 : 0)
                 } else {
                     Text("Log the first nap to start predictions")
                         .font(Theme.text(14, relativeTo: .subheadline))
@@ -199,30 +205,30 @@ struct SleepCard: View {
                 .padding(.top, 4)
             }
 
-            pill("Start nap", color: Theme.sleepInk, action: onStartNap)
+            // Gold pill with dark-ink text — the sunny counterpart to the
+            // blue "Wake up" pill, and readable where white-on-gold isn't.
+            pill("Start nap", color: Theme.awakeButton, textColor: Theme.ink,
+                 action: onStartNap)
                 .padding(.top, 16)
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(alignment: .topTrailing) {
-            Circle()
-                .fill(Theme.sleepBadge)
-                .frame(width: 120, height: 120)
-                .offset(x: 20, y: -30)
-        }
-        .background(.white)
+        // Warm yellow "sun" fill — awake reads clearly apart from the blue
+        // "moon" asleep card. The full fill carries the theme, so the old
+        // blue corner circle is gone.
+        .background(Theme.awakeBadge)
         .clipShape(RoundedRectangle(cornerRadius: 28))
         .cardShadow()
     }
 
     // MARK: - Pieces
 
-    private func pill(_ title: String, color: Color,
+    private func pill(_ title: String, color: Color, textColor: Color = .white,
                       action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .font(Theme.display(17, relativeTo: .headline))
-                .foregroundStyle(.white)
+                .foregroundStyle(textColor)
                 .frame(maxWidth: .infinity, minHeight: 50)
                 .background(color, in: Capsule())
         }

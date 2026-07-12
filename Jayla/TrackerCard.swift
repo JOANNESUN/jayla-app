@@ -62,6 +62,10 @@ struct TrackerCard: View {
             .accessibilityAction(named: "Undo last \(type.label.lowercased())") {
                 onUndoRequest()
             }
+
+            // Makes the long-press undo discoverable; silent to VoiceOver
+            // (the custom action above already covers it).
+            UndoHint()
         }
         .padding(.vertical, 14)
         .frame(maxWidth: .infinity)
@@ -97,6 +101,21 @@ struct TrackerCard: View {
         // The button just shows "+"; VoiceOver can't see which card it
         // sits on, so it gets the activity-specific label.
         .accessibilityLabel(type.accessibilityLogLabel)
+    }
+}
+
+/// The quiet "hold to undo" caption shared by the log surfaces — the feed
+/// hero and the poop/pee tiles. Deliberately silent to VoiceOver: each
+/// surface already exposes an "Undo last …" custom action.
+struct UndoHint: View {
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "hand.tap")
+            Text("hold to undo")
+        }
+        .font(Theme.text(10, relativeTo: .caption2))
+        .foregroundStyle(Theme.softInk)
+        .accessibilityHidden(true)
     }
 }
 
