@@ -91,12 +91,6 @@ final class ActivityRepository {
         #endif
     }
 
-    /// "She actually fell asleep at…" — backdate a running nap's start.
-    func adjustNapStart(_ nap: ActivityEvent, to newStart: Date) {
-        nap.timestamp = newStart
-        try? context.save()
-    }
-
     /// Undo a mis-tapped "Wake up": clear the duration so the nap is
     /// open again and the timer picks back up from the original start.
     func reopenNap(_ nap: ActivityEvent) {

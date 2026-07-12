@@ -15,16 +15,33 @@ final class BabyProfile {
     var name: String
     var birthdate: Date
     var createdAt: Date
+    // Raw string with a declaration-site default so stores created
+    // before the field existed migrate in place — those babies (Jayla)
+    // were all girls.
+    var genderRaw: String = Gender.girl.rawValue
     // JPEG of the baby's profile photo. externalStorage keeps the blob out
     // of the main SQLite store. nil → show a placeholder.
     @Attribute(.externalStorage) var photoData: Data?
 
-    init(name: String, birthdate: Date, photoData: Data? = nil) {
+    init(name: String, birthdate: Date, gender: Gender = .girl, photoData: Data? = nil) {
         self.name = name
         self.birthdate = birthdate
         self.createdAt = .now
+        self.genderRaw = gender.rawValue
         self.photoData = photoData
     }
+}
+
+/// Drives the she/he pronouns sprinkled through the app's copy.
+enum Gender: String, Codable, CaseIterable {
+    case girl, boy
+
+    /// "she" / "he"
+    var subject: String { self == .girl ? "she" : "he" }
+    /// "her" / "him"
+    var object: String { self == .girl ? "her" : "him" }
+    /// "her" / "his"
+    var possessive: String { self == .girl ? "her" : "his" }
 }
 
 // Coarse age bands — only used to seed predictions before real data exists.
@@ -35,6 +52,11 @@ enum AgeBand {
 }
 
 extension BabyProfile {
+    var gender: Gender {
+        get { Gender(rawValue: genderRaw) ?? .girl }
+        set { genderRaw = newValue.rawValue }
+    }
+
     var ageInDays: Int {
         Calendar.current.dateComponents([.day], from: birthdate, to: .now).day ?? 0
     }

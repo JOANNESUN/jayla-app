@@ -38,13 +38,16 @@ enum Theme {
     static let feedInk    = Color(hex: "FF6FAE")   // vibrant blossom pink
 
     // Sleep — blue
-    static let sleepBadge = Color(hex: "DDF0FF")   // soft sky blue background
-    static let sleepInk   = Color(hex: "4DA6FF")   // vibrant sky blue
+    static let sleepBadge  = Color(hex: "DDF0FF")   // soft sky blue background
+    static let sleepInk    = Color(hex: "4DA6FF")   // vibrant sky blue
+    static let sleepAccent = Color(hex: "2E6FD6")   // deep blue — DND label + headline
+                                                    // numbers, the blue twin of awakeAccent
 
-    // Awake — warm "sun" yellow, so the awake card reads clearly apart
-    // from the blue asleep card at a glance.
-    static let awakeBadge  = Color(hex: "FFF4CC")   // soft yellow card fill
+    // Awake — the gold Start-nap pill is the sunny cue that sets the
+    // (white) awake card apart from the blue asleep card at a glance.
     static let awakeButton = Color(hex: "FFBE00")   // gold Start-nap pill (dark ink text)
+    static let awakeAccent = Color(hex: "E09A16")   // readable gold for the AWAKE label
+                                                    // + the numbers in the headline
 
     // Poop — warm brown, sampled from the kawaii poop icon
     static let poopInk    = Color(hex: "A6713E")   // icon brown ("+" button, count)

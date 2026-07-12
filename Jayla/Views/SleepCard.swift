@@ -21,16 +21,17 @@ import SwiftUI
 
 struct SleepCard: View {
     let now: Date
-    /// Widens the nap window and softens the copy for young babies.
-    let ageBand: AgeBand
+    /// Picks she/he in the card's copy.
+    var gender: Gender = .girl
     /// nil = awake.
     let openNapStart: Date?
     /// How long the current nap is expected to run (asleep state).
     let durationEstimate: IntervalEstimate?
     /// Next predicted nap start (awake state).
     let nextNap: Prediction?
-    /// The past fact for the awake state, e.g. "Slept 2h ago".
-    let lastSleptText: String?
+    /// When she last woke (awake state) — end of the most recent nap.
+    /// Drives the "awake for …" headline and the awake-window bar.
+    let awakeSince: Date?
     /// Set for a short while after "Wake up": the duration of the nap
     /// that just ended. Wake pays the loop off with a summary — shown
     /// in place on this card, never as a modal (taps are the currency
@@ -39,11 +40,8 @@ struct SleepCard: View {
 
     var onStartNap: () -> Void = {}
     var onWakeUp: () -> Void = {}
-    var onAdjust: () -> Void = {}
+    var onUndoNap: () -> Void = {}
     var onUndoWake: () -> Void = {}
-
-    @Environment(\.dynamicTypeSize) private var typeSize
-    @ScaledMetric(relativeTo: .title2) private var ringSize = 104.0
 
     var body: some View {
         if let napStart = openNapStart {
@@ -56,49 +54,49 @@ struct SleepCard: View {
     // MARK: - Asleep
 
     private func asleepCard(napStart: Date) -> some View {
-        // Ring beside the text normally; at accessibility sizes the
-        // text column gets crushed, so the ring stacks on top instead.
-        let layout = typeSize.isAccessibilitySize
-            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 16))
-            : AnyLayout(HStackLayout(spacing: 18))
-        return VStack(spacing: 16) {
-            layout {
-                progressRing(napStart: napStart)
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("DO NOT DISTURB 🌙")
+                    .font(Theme.text(12, .black, relativeTo: .caption))
+                    .tracking(1.5)
+                    .foregroundStyle(Theme.sleepAccent)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text("DO NOT DISTURB")
-                            .font(Theme.text(12, .black, relativeTo: .caption))
-                            .tracking(1.5)
-                            .foregroundStyle(Theme.sleepInk)
-                        Image(systemName: "moon.fill")
-                            .font(.caption2)
-                            .foregroundStyle(Theme.sleepInk)
-                    }
-                    if let wakeText = wakeText(napStart: napStart) {
-                        Text(wakeText)
-                            .font(Theme.text(14, relativeTo: .subheadline))
-                            .foregroundStyle(Theme.ink)
-                    }
-                    Button(action: onAdjust) {
-                        Text("since \(Format.time(napStart)) · adjust")
-                            .font(Theme.text(12, relativeTo: .caption))
-                            .foregroundStyle(Theme.softInk)
-                            .underline()
-                            .frame(minHeight: 32, alignment: .leading)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                asleepHeadline(napStart: napStart)
+                    .font(Theme.display(28, relativeTo: .title))
+                    .foregroundStyle(Theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(asleepAccessibilityLabel(napStart: napStart))
 
-            pill("Wake up", color: Theme.sleepInk, action: onWakeUp)
+            if let wake = wakeTarget(napStart: napStart) {
+                asleepWindowBar(napStart: napStart, wake: wake)
+                    .padding(.top, 18)
+            } else {
+                Text("still learning nap lengths")
+                    .font(Theme.text(14, relativeTo: .subheadline))
+                    .foregroundStyle(Theme.softInk)
+                    .padding(.top, 12)
+            }
+
+            // She's not actually asleep — cancel the mis-started nap.
+            Button(action: onUndoNap) {
+                Text("not asleep? undo")
+                    .font(Theme.text(12, relativeTo: .caption))
+                    .foregroundStyle(Theme.softInk)
+                    .underline()
+                    .frame(minHeight: 32, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 4)
+
+            pill("tap when \(gender.subject) wakes", color: Theme.sleepInk,
+                 action: onWakeUp)
+                .padding(.top, 16)
         }
         .padding(22)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.sleepBadge)
         .clipShape(RoundedRectangle(cornerRadius: 28))
         .overlay(
@@ -108,87 +106,69 @@ struct SleepCard: View {
         .cardShadow()
     }
 
-    /// Elapsed ÷ predicted duration. Full = she should wake any time.
-    private func progressRing(napStart: Date) -> some View {
+    /// "asleep for 42m and likely wakes by 5:59 PM", blue on the numbers.
+    private func asleepHeadline(napStart: Date) -> Text {
+        sentenceHeadline(verb: "asleep for", since: napStart,
+                         connector: "and likely wakes",
+                         target: wakeTarget(napStart: napStart), accent: Theme.sleepAccent)
+    }
+
+    /// Predicted wake = nap start + expected nap length; nil until we have
+    /// enough naps to estimate one.
+    private func wakeTarget(napStart: Date) -> Date? {
+        guard let expected = durationEstimate?.expected else { return nil }
+        return napStart.addingTimeInterval(expected)
+    }
+
+    /// Blue "nap so far" bar: elapsed ÷ the expected nap length.
+    private func asleepWindowBar(napStart: Date, wake: Date) -> some View {
+        let expected = wake.timeIntervalSince(napStart)
         let elapsed = now.timeIntervalSince(napStart)
-        let fraction: Double
-        if let expected = durationEstimate?.expected, expected > 0 {
-            fraction = min(max(elapsed / expected, 0.02), 1)
-        } else {
-            fraction = 0.02
-        }
-        return ZStack {
-            Circle()
-                .stroke(.white, lineWidth: 10)
-            Circle()
-                .trim(from: 0, to: fraction)
-                .stroke(Theme.sleepInk,
-                        style: StrokeStyle(lineWidth: 10, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-            VStack(spacing: 0) {
-                Text(elapsedText(since: napStart))
-                    .font(Theme.display(20, relativeTo: .title3))
-                    .foregroundStyle(Theme.ink)
-                if let remaining = remainingText(napStart: napStart) {
-                    Text(remaining)
-                        .font(Theme.text(10, relativeTo: .caption2))
-                        .foregroundStyle(Theme.softInk)
-                }
-            }
-            .padding(10)
-        }
-        .frame(width: ringSize, height: ringSize)
+        let fraction = expected > 0 ? min(max(elapsed / expected, 0.02), 1) : 1
+        let right = wake > now
+            ? "likely wakes \(Format.time(wake))"
+            : "likely waking now"
+        return windowBar(fraction: fraction, leftLabel: "nap so far",
+                         rightLabel: right,
+                         gradient: [Theme.sleepInk, Theme.cobalt],
+                         track: .white)   // white track on the blue card
     }
 
     // MARK: - Awake
 
     private var awakeCard: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Text(justWokeDuration == nil ? "SLEEPY IN…" : "WIDE AWAKE ☀️")
-                        .font(Theme.text(12, .black, relativeTo: .caption))
-                        .tracking(1.5)
-                        .foregroundStyle(Theme.sleepInk)
-                    if nextNap != nil {
-                        // The honest contract, same as the feed hero:
-                        // a bell means this prediction will remind you.
-                        Image(systemName: "bell.fill")
-                            .font(.caption2)
-                            .foregroundStyle(Theme.sleepInk)
-                    }
-                }
+            VStack(alignment: .leading, spacing: 6) {
+                Text("AWAKE ☀️")
+                    .font(Theme.text(12, .black, relativeTo: .caption))
+                    .tracking(1.5)
+                    .foregroundStyle(Theme.awakeAccent)
 
+                awakeHeadline
+                    .font(Theme.display(28, relativeTo: .title))
+                    .foregroundStyle(Theme.ink)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // The wake pays off with the nap it just closed — "was it
+                // a good one?" is the first question after every wake.
                 if let justWokeDuration {
                     Text("slept \(Format.duration(justWokeDuration))")
-                        .font(Theme.display(24, relativeTo: .title2))
-                        .foregroundStyle(Theme.ink)
-                }
-
-                if let nextNap {
-                    Text((justWokeDuration == nil ? "" : "next nap ")
-                        + nextNapText(nextNap))
-                        // Lead with the nap time when we're just waiting;
-                        // stay secondary right after a wake, where the big
-                        // "slept …" summary is the headline.
-                        .font(justWokeDuration == nil
-                              ? Theme.display(20, relativeTo: .title3)
-                              : Theme.text(14, relativeTo: .subheadline))
-                        .foregroundStyle(Theme.ink)
-                        .padding(.top, justWokeDuration == nil ? 2 : 0)
-                } else {
-                    Text("Log the first nap to start predictions")
                         .font(Theme.text(14, relativeTo: .subheadline))
-                        .foregroundStyle(Theme.softInk)
-                }
-                if justWokeDuration == nil, let lastSleptText {
-                    Text(lastSleptText)
-                        .font(Theme.text(12, relativeTo: .caption))
                         .foregroundStyle(Theme.softInk)
                 }
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(awakeAccessibilityLabel)
+
+            if let awakeSince, let nextNap {
+                awakeWindowBar(awakeSince: awakeSince, nextNap: nextNap)
+                    .padding(.top, 18)
+            } else if nextNap == nil {
+                Text("Log the first nap to start predictions")
+                    .font(Theme.text(14, relativeTo: .subheadline))
+                    .foregroundStyle(Theme.softInk)
+                    .padding(.top, 12)
+            }
 
             if justWokeDuration != nil {
                 // Mis-stopped timers are the top timer complaint in the
@@ -213,10 +193,10 @@ struct SleepCard: View {
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Warm yellow "sun" fill — awake reads clearly apart from the blue
-        // "moon" asleep card. The full fill carries the theme, so the old
-        // blue corner circle is gone.
-        .background(Theme.awakeBadge)
+        // White fill — the yellow blended into the cream page, so the card
+        // is white (like the feed hero) and the gold Start-nap pill carries
+        // the sunny cue that sets awake apart from the blue asleep card.
+        .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 28))
         .cardShadow()
     }
@@ -237,80 +217,110 @@ struct SleepCard: View {
 
     // MARK: - Formatting
 
-    private func wakeText(napStart: Date) -> String? {
-        guard let estimate = durationEstimate else { return nil }
-        let wake = napStart.addingTimeInterval(estimate.expected)
-        guard wake > now else { return "could wake any time now" }
-        return "likely wakes around \(Format.time(wake))" + caveat(estimate.confidence)
+    /// Shared by both live states so they read the same: "<verb> <duration>
+    /// <connector> by <time>" — "awake for 1h 02m and likely tired by 5:46 PM"
+    /// / "asleep for 42m and likely wakes by 5:59 PM". The duration and the
+    /// "by <time>"/"now" tail are picked out in `accent` against the ink base
+    /// the caller sets; `target == nil` drops the tail.
+    private func sentenceHeadline(verb: String, since: Date, connector: String,
+                                  target: Date?, accent: Color) -> Text {
+        let duration = Text(Format.durationPadded(now.timeIntervalSince(since)))
+            .foregroundStyle(accent)
+        guard let target else { return Text("\(verb) \(duration)") }
+        let tail = target > now
+            ? Text("by \(Format.time(target))").foregroundStyle(accent)
+            : Text("now").foregroundStyle(accent)
+        return Text("\(verb) \(duration) \(connector) \(tail)")
     }
 
-    private func remainingText(napStart: Date) -> String? {
-        guard let estimate = durationEstimate else { return nil }
-        let remaining = napStart.addingTimeInterval(estimate.expected)
-            .timeIntervalSince(now)
-        guard remaining > 60 else { return "any time now" }
-        let minutes = Int(remaining / 60)
-        let hours = minutes / 60
-        let rest = minutes % 60
-        if hours > 0 {
-            return rest == 0 ? "~\(hours)h left" : "~\(hours)h \(rest)m left"
+    /// Shared progress bar. The gradient spans the FULL track and is revealed
+    /// up to `fraction`, so the fill reads its start color early and only
+    /// reaches its end color as the window runs out.
+    private func windowBar(fraction: Double, leftLabel: String, rightLabel: String,
+                           gradient: [Color], track: Color) -> some View {
+        VStack(spacing: 7) {
+            HStack {
+                Text(leftLabel)
+                Spacer()
+                Text(rightLabel)
+            }
+            .font(Theme.text(12, relativeTo: .caption))
+            .foregroundStyle(Theme.softInk)
+
+            GeometryReader { geo in
+                Capsule()
+                    .fill(track)
+                    .overlay(alignment: .leading) {
+                        LinearGradient(colors: gradient,
+                                       startPoint: .leading, endPoint: .trailing)
+                            .frame(width: geo.size.width)
+                            .mask(alignment: .leading) {
+                                Capsule().frame(width: geo.size.width * fraction)
+                            }
+                    }
+            }
+            .frame(height: 9)
         }
-        return "~\(minutes)m left"
     }
 
-    // A range, not a point: the window IS the hedge, so the caveat
-    // suffix only stays while the engine is still learning.
-    private func nextNapText(_ prediction: Prediction) -> String {
-        guard prediction.nextTime > now else { return "could start any time now" }
-        let window = prediction.napWindow(ageBand: ageBand)
-        let suffix = prediction.confidence == .learning ? " · still learning" : ""
-        if window.lowerBound <= now {
-            return "between now and \(Format.time(window.upperBound))" + suffix
-        }
-        return "between \(Format.time(window.lowerBound)) and \(Format.time(window.upperBound))"
-            + suffix
+    /// "awake for 1h 02m and likely tired by 5:46 PM", gold on the numbers.
+    /// Falls back before the first nap gives us a wake to measure from.
+    private var awakeHeadline: Text {
+        guard let awakeSince else { return Text("\(gender.subject)'s awake") }
+        return sentenceHeadline(verb: "awake for", since: awakeSince,
+                                connector: "and likely tired",
+                                target: nextNap?.nextTime, accent: Theme.awakeAccent)
     }
 
-    /// Elapsed nap time: "42m" / "1h 5m".
-    private func elapsedText(since date: Date) -> String {
-        Format.duration(now.timeIntervalSince(date))
-    }
-
-    private func caveat(_ confidence: PredictionConfidence) -> String {
-        switch confidence {
-        case .confident: ""
-        case .roughly:   " · rough guess"
-        case .learning:  " · still learning"
-        }
+    /// Green → gold bar: how far through the stretch from waking to the next
+    /// predicted nap. A range would over-promise, so the point estimate leads
+    /// and the bar carries the "still filling" hedge.
+    private func awakeWindowBar(awakeSince: Date, nextNap: Prediction) -> some View {
+        let total = nextNap.nextTime.timeIntervalSince(awakeSince)
+        let elapsed = now.timeIntervalSince(awakeSince)
+        let fraction = total > 0 ? min(max(elapsed / total, 0.02), 1) : 1
+        let right = nextNap.nextTime > now
+            ? "likely tired by \(Format.time(nextNap.nextTime))"
+            : "likely tired now"
+        return windowBar(fraction: fraction, leftLabel: "awake window",
+                         rightLabel: right,
+                         gradient: [Theme.emerald, Theme.awakeButton],
+                         track: Color(hex: "EFEADD"))   // warm track vs the white card
     }
 
     // MARK: - Accessibility
 
     private func asleepAccessibilityLabel(napStart: Date) -> String {
-        var label = "Sleeping, \(elapsedText(since: napStart)) so far, since \(Format.time(napStart))."
-        if let wakeText = wakeText(napStart: napStart) {
-            label += " \(wakeText)."
+        var label = "Asleep for \(Format.duration(now.timeIntervalSince(napStart)))."
+        if let wake = wakeTarget(napStart: napStart) {
+            label += wake > now
+                ? " Likely wakes by \(Format.time(wake))."
+                : " Likely waking now."
         }
         return label
     }
 
     private var awakeAccessibilityLabel: String {
-        var label = ""
+        guard let awakeSince else {
+            return "\(gender.subject.capitalized)'s awake. Log the first nap to start predictions."
+        }
+        var label = "Awake for \(Format.duration(now.timeIntervalSince(awakeSince)))."
         if let justWokeDuration {
-            label += "She's awake, slept \(Format.duration(justWokeDuration)). "
+            label += " Slept \(Format.duration(justWokeDuration))."
         }
-        guard let nextNap else {
-            return label + "Next nap. Log the first nap to start predictions."
+        if let nextNap {
+            label += nextNap.nextTime > now
+                ? " Likely tired by \(Format.time(nextNap.nextTime)). Jayla will remind you."
+                : " Likely tired now."
+        } else {
+            label += " Log the first nap to start predictions."
         }
-        label += "Next nap \(nextNapText(nextNap)). Jayla will remind you."
-        if justWokeDuration == nil, let lastSleptText { label += " \(lastSleptText)." }
         return label
     }
 }
 
 #Preview("Awake") {
     SleepCard(now: .now,
-              ageBand: .infant,
               openNapStart: nil,
               durationEstimate: nil,
               nextNap: Prediction(nextTime: .now.addingTimeInterval(45 * 60),
@@ -318,7 +328,7 @@ struct SleepCard: View {
                                   confidence: .roughly,
                                   sampleCount: 4,
                                   priorBlend: 1),
-              lastSleptText: "Slept 2h ago",
+              awakeSince: .now.addingTimeInterval(-62 * 60),
               justWokeDuration: nil)
         .padding()
         .background(Theme.background)
@@ -326,7 +336,6 @@ struct SleepCard: View {
 
 #Preview("Just woke — short nap") {
     SleepCard(now: .now,
-              ageBand: .infant,
               openNapStart: nil,
               durationEstimate: nil,
               nextNap: Prediction(nextTime: .now.addingTimeInterval(100 * 60),
@@ -334,7 +343,7 @@ struct SleepCard: View {
                                   confidence: .roughly,
                                   sampleCount: 4,
                                   priorBlend: 1),
-              lastSleptText: nil,
+              awakeSince: .now.addingTimeInterval(-2 * 60),
               justWokeDuration: 28 * 60)
         .padding()
         .background(Theme.background)
@@ -342,14 +351,13 @@ struct SleepCard: View {
 
 #Preview("Asleep") {
     SleepCard(now: .now,
-              ageBand: .infant,
               openNapStart: .now.addingTimeInterval(-72 * 60),
               durationEstimate: IntervalEstimate(expected: 107 * 60,
                                                  confidence: .roughly,
                                                  sampleCount: 3,
                                                  priorBlend: 0.75),
               nextNap: nil,
-              lastSleptText: nil,
+              awakeSince: nil,
               justWokeDuration: nil)
         .padding()
         .background(Theme.background)

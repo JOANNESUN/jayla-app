@@ -2,9 +2,9 @@
 //  OnboardingView.swift
 //  Jayla
 //
-//  First-run setup: collect the baby's name, birthday, and an optional
-//  photo, then create the BabyProfile. Shown by ContentView whenever no
-//  profile exists yet.
+//  First-run setup: collect the baby's name, gender, birthday, and an
+//  optional photo, then create the BabyProfile. Shown by ContentView
+//  whenever no profile exists yet.
 //
 
 import SwiftUI
@@ -15,6 +15,7 @@ struct OnboardingView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var name = ""
+    @State private var gender = Gender.girl
     @State private var birthdate = Date.now
     @State private var pickerItem: PhotosPickerItem?
     @State private var photoData: Data?
@@ -52,6 +53,17 @@ struct OnboardingView: View {
                         .padding(16)
                         .background(.white, in: RoundedRectangle(cornerRadius: 22))
                         .cardShadow()
+
+                    HStack {
+                        Text("Gender")
+                            .font(Theme.text(17, relativeTo: .body))
+                            .foregroundStyle(Theme.ink)
+                        Spacer()
+                        GenderPills(gender: $gender)
+                    }
+                    .padding(16)
+                    .background(.white, in: RoundedRectangle(cornerRadius: 22))
+                    .cardShadow()
 
                     HStack {
                         // Visible label; hidden from VoiceOver because the
@@ -145,6 +157,7 @@ struct OnboardingView: View {
     private func save() {
         let baby = BabyProfile(name: trimmedName,
                                birthdate: birthdate,
+                               gender: gender,
                                photoData: photoData)
         modelContext.insert(baby)
         try? modelContext.save()

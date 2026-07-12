@@ -25,6 +25,18 @@ enum Format {
         return "\(minutes)m"
     }
 
+    /// Like `duration`, but zero-pads the minutes once there's an hour —
+    /// "1h 02m" — so the awake-window headline holds its width as it ticks.
+    static func durationPadded(_ duration: TimeInterval) -> String {
+        let minutes = max(0, Int(duration / 60))
+        let hours = minutes / 60
+        let rest = minutes % 60
+        if hours > 0 {
+            return String(format: "%dh %02dm", hours, rest)
+        }
+        return "\(minutes)m"
+    }
+
     /// Coarse, calm relative time: "just now" under a minute, then
     /// minutes/hours — never ticking seconds, never "Last now".
     static func humanTime(since date: Date, now: Date) -> String {

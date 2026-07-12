@@ -397,15 +397,15 @@ struct HistoryView: View {
         case .up where trends.napsConsolidating:
             "Sleep is lengthening and naps are consolidating."
         case .up:
-            "She's sleeping a little more than last week."
+            "\(baby.gender.subject.capitalized)'s sleeping a little more than last week."
         case .steady where trends.napsConsolidating:
             "Naps are consolidating into fewer, longer stretches."
         case .steady:
-            "Her rhythm is holding steady."
+            "\(baby.gender.possessive.capitalized) rhythm is holding steady."
         case .down:
             "A little less sleep than last week — spurts and leaps do this."
         case .unknown:
-            "Still learning her weekly rhythm."
+            "Still learning \(baby.gender.possessive) weekly rhythm."
         }
     }
 
@@ -418,7 +418,7 @@ struct HistoryView: View {
         guard let trends, trends.avgSleepPerDay > 0 else {
             return "Sleep. Not enough data yet."
         }
-        return "She sleeps \(Format.duration(trends.avgSleepPerDay)) a day this week. "
+        return "\(baby.gender.subject.capitalized) sleeps \(Format.duration(trends.avgSleepPerDay)) a day this week. "
             + narrative(for: trends)
     }
 

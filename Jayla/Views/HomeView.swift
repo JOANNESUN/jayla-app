@@ -20,8 +20,6 @@ struct HomeView: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \ActivityEvent.timestamp, order: .reverse) private var events: [ActivityEvent]
-    // The running nap being backdated via the "since 2:40 · adjust" row.
-    @State private var adjustingNap: ActivityEvent?
     // The event a long-press asked to take back — non-nil drives the
     // "Remove last …?" confirmation dialog.
     @State private var undoTarget: ActivityEvent?
@@ -60,14 +58,6 @@ struct HomeView: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { await refreshNotificationStatus() }
-        }
-        .sheet(item: $adjustingNap) { nap in
-            NapAdjustSheet(napStart: nap.timestamp) { newStart in
-                ActivityRepository(context: modelContext)
-                    .adjustNapStart(nap, to: newStart)
-                // The runaway check is anchored to the start time.
-                Task { await Rescheduler.recomputeAndReschedule() }
-            }
         }
         // "I logged the wrong one" — long-press on the feed hero or a
         // poop/pee tile lands here. The dialog names exactly what it's
@@ -294,20 +284,26 @@ struct HomeView: View {
         let nap = openNap(now: now)
         return SleepCard(
             now: now,
-            ageBand: baby.ageBand,
+            gender: baby.gender,
             openNapStart: nap?.timestamp,
             durationEstimate: napDurationEstimate(now: now),
             nextNap: nap == nil ? prediction(for: .sleep, now: now) : nil,
-            lastSleptText: lastEvent(.sleep).map {
-                "\(ActivityType.sleep.pastTense) \(Format.humanTime(since: $0.timestamp, now: now))"
-            },
+            awakeSince: nap == nil ? awakeSince() : nil,
             justWokeDuration: nap == nil ? justWokeNap(now: now)?.durationSeconds : nil,
             onStartNap: { log(.sleep) },
             onWakeUp: {
                 guard let nap = openNap(now: .now) else { return }
                 wakeUp(nap)
             },
-            onAdjust: { adjustingNap = openNap(now: .now) },
+            onUndoNap: {
+                // "not asleep? undo" — cancel a mis-started nap. Deleting the
+                // open nap reverts to the awake state; reschedule since the
+                // next-nap prediction moves with it.
+                guard let nap = openNap(now: .now) else { return }
+                Haptics.tap()
+                ActivityRepository(context: modelContext).delete(nap)
+                Task { await Rescheduler.recomputeAndReschedule() }
+            },
             onUndoWake: {
                 guard let nap = justWokeNap(now: .now) else { return }
                 Haptics.tap()
@@ -317,17 +313,29 @@ struct HomeView: View {
         )
     }
 
+    /// When she last woke = the end of the most recent completed nap.
+    /// Drives the awake card's "awake for …" headline and its window bar.
+    /// nil until there's a finished nap to measure from.
+    private func awakeSince() -> Date? {
+        guard let last = lastEvent(.sleep), let dur = last.durationSeconds else { return nil }
+        return last.timestamp.addingTimeInterval(dur)
+    }
+
     /// The nap whose "Wake up" was tapped in the last half hour — the
     /// window during which the card shows the wake summary and offers
     /// undo. After that it's history (the analysis tab's job later).
+    /// The pick itself lives in NapMath (pure, CLI-tested): latest END
+    /// wins even when an adjusted start reordered the events, and an
+    /// end a few seconds ahead of the stale minute tick still counts.
     private func justWokeNap(now: Date) -> ActivityEvent? {
-        guard let nap = events.first(where: {
+        let completed = events.filter {
             $0.type == .sleep && ($0.durationSeconds ?? 0) > 0
-        }), let duration = nap.durationSeconds else { return nil }
-        let end = nap.timestamp.addingTimeInterval(duration)
-        guard now.timeIntervalSince(end) < 30 * 60,
-              now.timeIntervalSince(end) >= 0 else { return nil }
-        return nap
+        }
+        guard let index = NapMath.justWokeIndex(
+            naps: completed.map { ($0.timestamp, $0.durationSeconds ?? 0) },
+            now: now
+        ) else { return nil }
+        return completed[index]
     }
 
     // The grid holds the instants only — poop and pee. One glance, one
@@ -474,65 +482,5 @@ struct HomeView: View {
             return rest == 0 ? "In \(h)" : "In \(h) \(rest) minutes"
         }
         return "In \(minutes) minute\(minutes == 1 ? "" : "s")"
-    }
-}
-
-// MARK: - Nap adjust sheet
-
-/// "She actually fell asleep at…" — a compact wheel to backdate a
-/// running nap's start. Clamped to the past; Save hands the new start
-/// back to HomeView, which persists and reschedules.
-private struct NapAdjustSheet: View {
-    let napStart: Date
-    let onSave: (Date) -> Void
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var start: Date
-
-    init(napStart: Date, onSave: @escaping (Date) -> Void) {
-        self.napStart = napStart
-        self.onSave = onSave
-        _start = State(initialValue: napStart)
-    }
-
-    var body: some View {
-        VStack(spacing: 8) {
-            Text("When did she fall asleep?")
-                .font(Theme.display(20, relativeTo: .title3))
-                .foregroundStyle(Theme.ink)
-                .padding(.top, 24)
-
-            DatePicker("Nap start",
-                       selection: $start,
-                       in: ...Date.now,
-                       displayedComponents: .hourAndMinute)
-                .labelsHidden()
-                // .wheel doesn't exist on macOS, which the fast
-                // type-check build (`-destination 'platform=macOS'`)
-                // compiles for.
-                #if os(iOS)
-                .datePickerStyle(.wheel)
-                #endif
-
-            Button {
-                onSave(min(start, .now))
-                dismiss()
-            } label: {
-                Text("Save")
-                    .font(Theme.display(17, relativeTo: .headline))
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, minHeight: 50)
-                    .background(Theme.accent, in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 24)
-
-            Button("Cancel") { dismiss() }
-                .font(Theme.text(15, relativeTo: .subheadline))
-                .foregroundStyle(Theme.softInk)
-                .padding(.bottom, 16)
-        }
-        .presentationDetents([.height(360)])
-        .presentationBackground(Theme.background)
     }
 }
