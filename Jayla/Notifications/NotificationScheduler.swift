@@ -98,7 +98,7 @@ nonisolated enum NotificationScheduler {
         await schedule(
             id: napCheckID,
             title: "Still napping? 💤",
-            body: "It's been a long one — tap to update her log.",
+            body: "It's been a long one — tap to update the log.",
             at: date
         )
     }

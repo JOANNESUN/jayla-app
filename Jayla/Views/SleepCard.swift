@@ -23,6 +23,8 @@ struct SleepCard: View {
     let now: Date
     /// Widens the nap window and softens the copy for young babies.
     let ageBand: AgeBand
+    /// Picks she/he in the card's copy.
+    var gender: Gender = .girl
     /// nil = awake.
     let openNapStart: Date?
     /// How long the current nap is expected to run (asleep state).
@@ -96,7 +98,7 @@ struct SleepCard: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(asleepAccessibilityLabel(napStart: napStart))
 
-            pill("tap when she wakes", color: Theme.sleepInk, action: onWakeUp)
+            pill("tap when \(gender.subject) wakes", color: Theme.sleepInk, action: onWakeUp)
         }
         .padding(22)
         .frame(maxWidth: .infinity)
@@ -241,7 +243,7 @@ struct SleepCard: View {
     /// and the time picked out in gold. Falls back gracefully before the
     /// first nap gives us a wake to measure from or a prediction to show.
     private var awakeHeadline: Text {
-        guard let awakeSince else { return Text("she's awake") }
+        guard let awakeSince else { return Text("\(gender.subject)'s awake") }
         // Gold picks out the numbers against the ink base set in the body.
         let duration = Text(Format.durationPadded(now.timeIntervalSince(awakeSince)))
             .foregroundStyle(Theme.awakeAccent)
@@ -317,7 +319,7 @@ struct SleepCard: View {
 
     private var awakeAccessibilityLabel: String {
         guard let awakeSince else {
-            return "She's awake. Log the first nap to start predictions."
+            return "\(gender.subject.capitalized)'s awake. Log the first nap to start predictions."
         }
         var label = "Awake for \(Format.duration(now.timeIntervalSince(awakeSince)))."
         if let nextNap {

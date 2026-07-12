@@ -13,6 +13,7 @@ import SwiftUI
 
 struct ForecastCard: View {
     let babyName: String
+    var gender: Gender = .girl
     let forecast: ForecastEngine.Forecast?
     let now: Date
 
@@ -29,7 +30,7 @@ struct ForecastCard: View {
                     warningLine(at: warning)
                 }
             } else {
-                Text("her forecast rolls in with the first feed or nap ☁️")
+                Text("\(gender.possessive) forecast rolls in with the first feed or nap ☁️")
                     .font(Theme.text(14, relativeTo: .subheadline))
                     .foregroundStyle(Theme.softInk)
                     .padding(.vertical, 8)
@@ -152,7 +153,7 @@ struct ForecastCard: View {
         case .gettingHungry: "feels like: milk o'clock soon"
         case .hungry:        "feels like: milk overdue"
         case .sleepy:        "feels like: nap window open"
-        case .learning:      "feels like: getting to know her"
+        case .learning:      "feels like: getting to know \(gender.object)"
         }
     }
 

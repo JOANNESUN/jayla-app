@@ -5,7 +5,8 @@
 //  The third tab: Jayla herself, as a keepsake — a cream card holding
 //  a taped-down polaroid (tap the photo to change it, ♡ for a chin),
 //  her name big underneath with an age pill and a born · zodiac line.
-//  Tapping any of it opens one small sheet to edit name and birthday.
+//  Tapping any of it opens one small sheet to edit name, birthday and
+//  gender (a girl/boy pill tab that drives the app's pronouns).
 //  Changes autosave; there is no Save button to forget at 3am. Birthday
 //  edits reschedule reminders, because the age band drives the
 //  prediction priors. Below the keepsake sits the forecast card — the
@@ -37,6 +38,7 @@ struct ProfileView: View {
                     VStack(spacing: 12) {
                         keepsakeCard
                         ForecastCard(babyName: baby.name,
+                                     gender: baby.gender,
                                      forecast: forecast(now: timeline.date),
                                      now: timeline.date)
                     }
@@ -51,6 +53,9 @@ struct ProfileView: View {
             Task { await applyPickedPhoto(item) }
         }
         .onChange(of: baby.name) {
+            try? modelContext.save()
+        }
+        .onChange(of: baby.genderRaw) {
             try? modelContext.save()
         }
         .onChange(of: baby.birthdate) {
@@ -105,7 +110,7 @@ struct ProfileView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("\(baby.name). \(baby.keepsakeAge). Born \(baby.birthdate.formatted(date: .long, time: .omitted)), \(baby.zodiacSign)")
-            .accessibilityHint("Edits her name and birthday")
+            .accessibilityHint("Edits \(baby.gender.possessive) details")
         }
         .frame(maxWidth: .infinity)
         .padding(.bottom, 18)
@@ -130,7 +135,7 @@ struct ProfileView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Our \(baby.name)")
-            .accessibilityHint("Edits her name and birthday")
+            .accessibilityHint("Edits \(baby.gender.possessive) details")
         }
         .padding(12)
         .padding(.bottom, 6)
@@ -224,8 +229,8 @@ struct ProfileView: View {
 
 // MARK: - Edit sheet
 
-/// Name + birthday in one small sheet — the fields autosave through the
-/// parent's onChange handlers, so Done just closes it.
+/// Name + birthday + gender in one small sheet — the fields autosave
+/// through the parent's onChange handlers, so Done just closes it.
 private struct EditDetailsSheet: View {
     @Bindable var baby: BabyProfile
 
@@ -233,7 +238,7 @@ private struct EditDetailsSheet: View {
 
     var body: some View {
         VStack(spacing: 18) {
-            Text("Her details")
+            Text("\(baby.gender.possessive.capitalized) details")
                 .font(Theme.display(20, relativeTo: .title3))
                 .foregroundStyle(Theme.ink)
                 .padding(.top, 24)
@@ -243,7 +248,7 @@ private struct EditDetailsSheet: View {
                     Text("Name")
                         .font(Theme.text(15, relativeTo: .subheadline))
                         .foregroundStyle(Theme.softInk)
-                    TextField("Her name", text: $baby.name)
+                    TextField("Baby's name", text: $baby.name)
                         .font(Theme.text(15, .extraBold, relativeTo: .subheadline))
                         .foregroundStyle(Theme.ink)
                         .multilineTextAlignment(.trailing)
@@ -272,6 +277,20 @@ private struct EditDetailsSheet: View {
                         .tint(Theme.accent)
                 }
                 .padding(.vertical, 8)
+
+                Rectangle()
+                    .fill(Theme.background)
+                    .frame(height: 2)
+
+                HStack {
+                    Text("Gender")
+                        .font(Theme.text(15, relativeTo: .subheadline))
+                        .foregroundStyle(Theme.softInk)
+                    Spacer()
+                    genderPill(.girl)
+                    genderPill(.boy)
+                }
+                .padding(.vertical, 12)
             }
             .padding(.horizontal, 18)
             .background(.white)
@@ -293,8 +312,35 @@ private struct EditDetailsSheet: View {
 
             Spacer(minLength: 0)
         }
-        .presentationDetents([.height(300)])
+        .presentationDetents([.height(360)])
         .presentationBackground(Theme.background)
+    }
+
+    /// The gender tab: two pills, girl fills blossom pink and boy fills
+    /// sky blue — the feed and sleep palettes moonlighting.
+    private func genderPill(_ gender: Gender) -> some View {
+        let selected = baby.gender == gender
+        let ink = gender == .girl ? Theme.feedInk : Theme.sleepInk
+        let badge = gender == .girl ? Theme.feedBadge : Theme.sleepBadge
+        return Button {
+            guard baby.gender != gender else { return }
+            baby.gender = gender
+            Haptics.tap()
+        } label: {
+            Text(gender == .girl ? "Girl" : "Boy")
+                .font(Theme.text(14, .extraBold, relativeTo: .subheadline))
+                .foregroundStyle(selected ? ink : Theme.softInk)
+                .padding(.horizontal, 18)
+                .frame(minHeight: 34)
+                .background(selected ? badge : .white, in: Capsule())
+                .overlay(
+                    Capsule().strokeBorder(
+                        selected ? ink : Theme.softInk.opacity(0.35),
+                        lineWidth: selected ? 1.5 : 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }
 

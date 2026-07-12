@@ -62,7 +62,7 @@ struct HomeView: View {
             Task { await refreshNotificationStatus() }
         }
         .sheet(item: $adjustingNap) { nap in
-            NapAdjustSheet(napStart: nap.timestamp) { newStart in
+            NapAdjustSheet(napStart: nap.timestamp, gender: baby.gender) { newStart in
                 ActivityRepository(context: modelContext)
                     .adjustNapStart(nap, to: newStart)
                 // The runaway check is anchored to the start time.
@@ -295,6 +295,7 @@ struct HomeView: View {
         return SleepCard(
             now: now,
             ageBand: baby.ageBand,
+            gender: baby.gender,
             openNapStart: nap?.timestamp,
             durationEstimate: napDurationEstimate(now: now),
             nextNap: nap == nil ? prediction(for: .sleep, now: now) : nil,
@@ -494,20 +495,22 @@ struct HomeView: View {
 /// back to HomeView, which persists and reschedules.
 private struct NapAdjustSheet: View {
     let napStart: Date
+    let gender: Gender
     let onSave: (Date) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var start: Date
 
-    init(napStart: Date, onSave: @escaping (Date) -> Void) {
+    init(napStart: Date, gender: Gender, onSave: @escaping (Date) -> Void) {
         self.napStart = napStart
+        self.gender = gender
         self.onSave = onSave
         _start = State(initialValue: napStart)
     }
 
     var body: some View {
         VStack(spacing: 8) {
-            Text("When did she fall asleep?")
+            Text("When did \(gender.subject) fall asleep?")
                 .font(Theme.display(20, relativeTo: .title3))
                 .foregroundStyle(Theme.ink)
                 .padding(.top, 24)
