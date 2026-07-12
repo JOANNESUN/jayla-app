@@ -44,6 +44,8 @@ enum Theme {
     // Awake — the gold Start-nap pill is the sunny cue that sets the
     // (white) awake card apart from the blue asleep card at a glance.
     static let awakeButton = Color(hex: "FFBE00")   // gold Start-nap pill (dark ink text)
+    static let awakeAccent = Color(hex: "E09A16")   // readable gold for the AWAKE label
+                                                    // + the numbers in the headline
 
     // Poop — warm brown, sampled from the kawaii poop icon
     static let poopInk    = Color(hex: "A6713E")   // icon brown ("+" button, count)

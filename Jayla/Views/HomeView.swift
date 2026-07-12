@@ -298,9 +298,7 @@ struct HomeView: View {
             openNapStart: nap?.timestamp,
             durationEstimate: napDurationEstimate(now: now),
             nextNap: nap == nil ? prediction(for: .sleep, now: now) : nil,
-            lastSleptText: lastEvent(.sleep).map {
-                "\(ActivityType.sleep.pastTense) \(Format.humanTime(since: $0.timestamp, now: now))"
-            },
+            awakeSince: nap == nil ? awakeSince() : nil,
             justWokeDuration: nap == nil ? justWokeNap(now: now)?.durationSeconds : nil,
             onStartNap: { log(.sleep) },
             onWakeUp: {
@@ -317,17 +315,29 @@ struct HomeView: View {
         )
     }
 
+    /// When she last woke = the end of the most recent completed nap.
+    /// Drives the awake card's "awake for …" headline and its window bar.
+    /// nil until there's a finished nap to measure from.
+    private func awakeSince() -> Date? {
+        guard let last = lastEvent(.sleep), let dur = last.durationSeconds else { return nil }
+        return last.timestamp.addingTimeInterval(dur)
+    }
+
     /// The nap whose "Wake up" was tapped in the last half hour — the
     /// window during which the card shows the wake summary and offers
     /// undo. After that it's history (the analysis tab's job later).
+    /// The pick itself lives in NapMath (pure, CLI-tested): latest END
+    /// wins even when an adjusted start reordered the events, and an
+    /// end a few seconds ahead of the stale minute tick still counts.
     private func justWokeNap(now: Date) -> ActivityEvent? {
-        guard let nap = events.first(where: {
+        let completed = events.filter {
             $0.type == .sleep && ($0.durationSeconds ?? 0) > 0
-        }), let duration = nap.durationSeconds else { return nil }
-        let end = nap.timestamp.addingTimeInterval(duration)
-        guard now.timeIntervalSince(end) < 30 * 60,
-              now.timeIntervalSince(end) >= 0 else { return nil }
-        return nap
+        }
+        guard let index = NapMath.justWokeIndex(
+            naps: completed.map { ($0.timestamp, $0.durationSeconds ?? 0) },
+            now: now
+        ) else { return nil }
+        return completed[index]
     }
 
     // The grid holds the instants only — poop and pee. One glance, one
