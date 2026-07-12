@@ -11,15 +11,23 @@
 
 import SwiftUI
 import SwiftData
+import UserNotifications
 
 struct HomeView: View {
     let baby: BabyProfile
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.scenePhase) private var scenePhase
     @Query(sort: \ActivityEvent.timestamp, order: .reverse) private var events: [ActivityEvent]
     // The running nap being backdated via the "since 2:40 · adjust" row.
     @State private var adjustingNap: ActivityEvent?
+    // The event a long-press asked to take back — non-nil drives the
+    // "Remove last …?" confirmation dialog.
+    @State private var undoTarget: ActivityEvent?
+    // True only when the user explicitly turned notifications off in
+    // Settings — drives the recovery banner above the hero card.
+    @State private var notificationsDenied = false
 
     var body: some View {
         ZStack {
@@ -31,15 +39,27 @@ struct HomeView: View {
             TimelineView(.everyMinute) { timeline in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        header
+                        if notificationsDenied {
+                            NotificationsOffBanner()
+                        }
                         heroCard(now: timeline.date)
                         sleepSection(now: timeline.date)
                         quickLogGrid(now: timeline.date)
                     }
                     .padding(.horizontal, 20)
+                    .padding(.top, 18)
                     .padding(.bottom, 32)
                 }
+                // The header stays put while the cards scroll under it.
+                .safeAreaInset(edge: .top, spacing: 0) { BabyHeaderBar(baby: baby) }
             }
+        }
+        // Check on launch AND every return to foreground — the banner's
+        // whole job is reacting to what the user just did in Settings.
+        .task { await refreshNotificationStatus() }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await refreshNotificationStatus() }
         }
         .sheet(item: $adjustingNap) { nap in
             NapAdjustSheet(napStart: nap.timestamp) { newStart in
@@ -49,23 +69,25 @@ struct HomeView: View {
                 Task { await Rescheduler.recomputeAndReschedule() }
             }
         }
-    }
-
-    // MARK: - Header
-
-    // Name only — the photo lives on the keepsake profile tab, and the
-    // vertical space it took goes to the cards below.
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(baby.name)
-                .font(Theme.display(22, relativeTo: .title2))
-                .foregroundStyle(Theme.ink)
-            Text(baby.ageDescription)
-                .font(Theme.text(13, relativeTo: .footnote))
-                .foregroundStyle(Theme.softInk)
+        // "I logged the wrong one" — long-press on the feed hero or a
+        // poop/pee tile lands here. The dialog names exactly what it's
+        // about to remove, so a mis-scroll never deletes silently.
+        .confirmationDialog(
+            undoTarget.map { "Remove last \($0.type.label.lowercased())?" } ?? "",
+            isPresented: Binding(
+                get: { undoTarget != nil },
+                set: { if !$0 { undoTarget = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: undoTarget
+        ) { event in
+            Button("Remove \(event.type.label.lowercased()) · \(Format.time(event.timestamp))",
+                   role: .destructive) {
+                remove(event)
+            }
+        } message: { event in
+            Text("\(event.type.pastTense) \(Format.humanTime(since: event.timestamp, now: .now))")
         }
-        .accessibilityElement(children: .combine)
-        .padding(.top, 8)
     }
 
     // MARK: - Hero card
@@ -85,7 +107,7 @@ struct HomeView: View {
             // as separate stops. The log button below stays its own stop.
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 8) {
-                    Text("NEXT FEED")
+                    Text("HUNGRY AT…")
                         .font(Theme.text(12, .black, relativeTo: .caption))
                         .tracking(1.5)
                         .foregroundStyle(Theme.feedInk)
@@ -97,12 +119,17 @@ struct HomeView: View {
                 }
 
                 if let nextFeed {
-                    Text(heroCountdown(to: nextFeed.nextTime, from: now))
+                    // Time leads now — parents read a clock time faster than
+                    // "hours from now", so the big line is the "when" and the
+                    // countdown drops to the honest small print beneath it.
+                    Text(heroHeadline(to: nextFeed.nextTime, from: now, overdue: overdue))
                         .font(overdue ? Theme.display(30, relativeTo: .title)
                                       : Theme.display(52, relativeTo: .largeTitle))
                         .foregroundStyle(Theme.accent)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
                         .padding(.top, 4)
-                    Text(statusLine(for: nextFeed, overdue: overdue))
+                    Text(heroSubline(for: nextFeed, overdue: overdue, now: now))
                         .font(Theme.text(14, relativeTo: .subheadline))
                         .foregroundStyle(Theme.softInk)
 
@@ -127,6 +154,9 @@ struct HomeView: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(heroAccessibilityLabel(for: nextFeed, now: now))
+            // The long-press below is invisible to VoiceOver; the undo
+            // rides along as a custom action on the info block.
+            .accessibilityAction(named: "Undo last feed") { requestUndo(.feed) }
 
             Button {
                 log(.feed)
@@ -143,6 +173,13 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
             .padding(.top, 16)
+
+            // Make the long-press undo discoverable — real users had no way
+            // to find it. VoiceOver already has the custom action above, so
+            // the caption stays silent to avoid a redundant stop.
+            UndoHint()
+                .frame(maxWidth: .infinity)
+                .padding(.top, 8)
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -157,6 +194,10 @@ struct HomeView: View {
         .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 28))
         .shadow(color: .black.opacity(0.08), radius: 15, y: 6)
+        // "Take the last feed back" — the Log feed button keeps winning
+        // touches on its own frame, so a long-press can never double as
+        // an accidental log.
+        .onLongPressGesture(minimumDuration: 0.5) { requestUndo(.feed) }
     }
 
     /// How far through the feed cycle we are, as a bar. Full = overdue.
@@ -186,8 +227,26 @@ struct HomeView: View {
         return "~\(minutes)m cycle"
     }
 
-    /// The big number: "1h 5m" / "12m" — or "any time now" once the
-    /// predicted time has passed (predictions are honest, not clamped).
+    /// The big line: the predicted clock time ("10:52 PM"), or "any time
+    /// now" once that time has passed (predictions are honest, not clamped).
+    private func heroHeadline(to date: Date, from now: Date, overdue: Bool) -> String {
+        overdue ? "any time now" : Format.time(date)
+    }
+
+    /// The small print under the time: the countdown while we're waiting
+    /// ("in about 1h 5m"), or a past fact once overdue ("expected around
+    /// 10:52 PM"). The gentle caveat rides along until the engine is sure.
+    private func heroSubline(for prediction: Prediction, overdue: Bool, now: Date) -> String {
+        if overdue {
+            return "expected around \(Format.time(prediction.nextTime))"
+                + caveat(prediction.confidence)
+        }
+        return "in about \(heroCountdown(to: prediction.nextTime, from: now))"
+            + caveat(prediction.confidence)
+    }
+
+    /// The countdown text ("1h 5m" / "12m") that now rides in the subline —
+    /// or "any time now" (only reached via the overdue path above).
     private func heroCountdown(to date: Date, from now: Date) -> String {
         let remaining = date.timeIntervalSince(now)
         guard remaining > 60 else { return "any time now" }
@@ -198,14 +257,6 @@ struct HomeView: View {
             return rest == 0 ? "\(hours)h" : "\(hours)h \(rest)m"
         }
         return "\(minutes)m"
-    }
-
-    /// "around 10:52 PM", with a gentle caveat only while the engine
-    /// isn't confident yet. Once the time has passed, it's a past fact:
-    /// "expected around 10:52 PM".
-    private func statusLine(for prediction: Prediction, overdue: Bool) -> String {
-        "\(overdue ? "expected around" : "around") \(Format.time(prediction.nextTime))"
-            + caveat(prediction.confidence)
     }
 
     /// The gentle honesty suffix, shown only while the engine isn't
@@ -259,6 +310,7 @@ struct HomeView: View {
             onAdjust: { adjustingNap = openNap(now: .now) },
             onUndoWake: {
                 guard let nap = justWokeNap(now: .now) else { return }
+                Haptics.tap()
                 ActivityRepository(context: modelContext).reopenNap(nap)
                 Task { await Rescheduler.recomputeAndReschedule() }
             }
@@ -291,7 +343,8 @@ struct HomeView: View {
                 TrackerCard(
                     type: type,
                     count: todayCount(for: type, now: now),
-                    onLog: { log(type) }
+                    onLog: { log(type) },
+                    onUndoRequest: { requestUndo(type) }
                 )
             }
         }
@@ -349,7 +402,13 @@ struct HomeView: View {
         )
     }
 
+    private func refreshNotificationStatus() async {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        notificationsDenied = settings.authorizationStatus == .denied
+    }
+
     private func log(_ type: ActivityType) {
+        Haptics.tap()
         let repo = ActivityRepository(context: modelContext)
         switch type {
         case .sleep:
@@ -372,7 +431,30 @@ struct HomeView: View {
         }
     }
 
+    /// A long-press asked to take the last log of a type back. Nothing
+    /// to undo → nothing happens; the gesture stays consequence-free.
+    private func requestUndo(_ type: ActivityType) {
+        guard let last = lastEvent(type) else { return }
+        Haptics.tap()
+        undoTarget = last
+    }
+
+    /// The confirmed undo. Sleep never comes through here — the sleep
+    /// card has its own wake-undo — so only a feed needs the reschedule
+    /// (poop/pee don't drive notifications, same as when logging them).
+    private func remove(_ event: ActivityEvent) {
+        Haptics.undo()
+        let wasFeed = event.type == .feed
+        ActivityRepository(context: modelContext).delete(event)
+        if wasFeed {
+            Task { await Rescheduler.recomputeAndReschedule() }
+        }
+    }
+
     private func wakeUp(_ nap: ActivityEvent) {
+        // The nap's "success" buzz — the one log action that completes
+        // something rather than starting it.
+        Haptics.success()
         ActivityRepository(context: modelContext).endNap(nap)
         Task { await Rescheduler.recomputeAndReschedule() }
     }

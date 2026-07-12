@@ -161,6 +161,10 @@ Consequences:
   `source == "notification"` event exists within ~2 minutes.
 - **Permission denied?** The app stays a fully functional manual tracker —
   in-app predictions and countdown still work; only the push is lost.
+  Home shows a recovery banner (`NotificationsOffBanner`) only while
+  status is `.denied` — iOS never allows a re-ask, so the banner
+  deep-links straight to Jayla's notification settings page and the
+  status is re-checked on every return to foreground.
 
 ## Build phases
 
@@ -322,6 +326,49 @@ Each phase is independently shippable.
   `JAYLA_OPEN_TAB=history|history-month|profile` opens any page
   headlessly. Deferred: scroll-back past 30 days, editing/deleting
   events from history.
+- [x] **Keepsake pass 2 + Jayla Forecast (branch `history-page`).**
+  Profile lower half restyled magazine-cover style: polaroid keeps just
+  a handwritten ♡ chin, then big name → age pill (🎂 keepsakeAge) →
+  one small `born … · zodiac` line (zodiac derived from the birthday,
+  `BabyProfile.zodiacSign` — never stored). Weight/height tiles
+  considered and dropped: manual entry that goes stale fights one-tap
+  minimalism. Below the keepsake card, the **forecast card**
+  (`Views/ForecastCard.swift`) — the nursery weather channel: current
+  mood + feels-like, a five-hour outlook strip (😴🍼🌧☀️🌙), and a fuss
+  warning. Pure `Prediction/ForecastEngine.swift` walks the existing
+  predictions forward (feeds at the learned gap, naps at the learned
+  start-to-start spacing, sleep ≥7pm reads "bed"); **fussy is inferred,
+  never logged** — the ≤30 min build-up before predicted relief (feed
+  or nap). Honesty carries over: overdue feeds sit at "now", nothing
+  clamps, and while both predictions are `.learning` the card says
+  "still learning her rhythm". Display-only — never logs or notifies.
+  Engine covered by ForecastEngineTests in `run.sh` (fixed UTC calendar
+  so the bedtime assertion can't drift with the machine's timezone).
+  Second pass (Joanne's asks): both cards fit ONE screen — 170pt
+  polaroid, tighter paddings, slim one-line fuss warning, learning
+  caveat folded into the feels-like line as a " · still learning"
+  suffix — and a soft `pencil.circle.fill` beside the name makes
+  editing discoverable (whole name block stays the tap target).
+  Bed hours are 7pm–6am: past-midnight sleep read as "nap" until a
+  simulator screenshot caught it (regression test added).
+- [x] **Long-press undo (branch `haptics-and-notif-banner`).** First
+  user feedback ("what if I log the wrong feeding time? how do I
+  revert?") — mis-logs matter more here than in most apps because the
+  newest event is exactly what the recency-weighted engine trusts most.
+  Long-pressing the feed hero card or a poop/pee tile opens a native
+  confirmation dialog naming exactly what it's about to remove ("Remove
+  last feed? · 3:42 PM / Fed 2 min ago"); confirming deletes through
+  `ActivityRepository.delete` and, for feeds, the Rescheduler choke
+  point — so the prediction and pending reminder heal instantly. Zero
+  new visible UI (the market's post-log edit window, done the Jayla
+  way). The +/Log buttons keep winning touches on their own frames, so
+  a long-press can never double as an accidental log; VoiceOver gets
+  the same power as a custom "Undo last …" action. A third haptic voice
+  (`Haptics.undo()`, rigid) makes removal feel unlike logging. Sleep is
+  excluded — the sleep card owns its wake-undo and adjust flows.
+  Deferred: "logged earlier?" time wheel on the same sheet (undo +
+  re-log covers most of it); reset-all (delete + reinstall works —
+  storage is local-only).
 - [ ] **Phase 6 — Pattern-shift flagging & engine polish.** Change-point
   check (recent ~3 intervals vs the prior window; a consistent >~25%
   shift temporarily shortens the half-life and surfaces a hint like

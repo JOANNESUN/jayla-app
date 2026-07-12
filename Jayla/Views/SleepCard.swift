@@ -6,12 +6,13 @@
 //  feed), so it gets a full-width card instead of a quick-log tile.
 //  Two states, driven by whether a nap is open:
 //
-//  awake  → "NEXT NAP" + bell (a reminder is pending), the prediction,
-//           and a Start nap pill
-//  asleep → a progress ring (elapsed vs predicted duration), the wake
-//           estimate, a backdate row, and a Wake up pill. NO bell —
-//           the wake estimate is display-only by design; Jayla never
-//           pings during a nap.
+//  awake  → "SLEEPY IN…" + bell (a reminder is pending), the nap
+//           window, and a Start nap pill ("WIDE AWAKE" right after
+//           a wake)
+//  asleep → "DO NOT DISTURB": a progress ring (elapsed vs predicted
+//           duration), the wake estimate, a backdate row, and a Wake
+//           up pill. NO bell — the wake estimate is display-only by
+//           design; Jayla never pings during a nap.
 //
 //  Takes plain values + closures; HomeView owns the data and actions.
 //
@@ -41,10 +42,6 @@ struct SleepCard: View {
     var onAdjust: () -> Void = {}
     var onUndoWake: () -> Void = {}
 
-    /// Under one sleep cycle — the "45-minute intruder". Experts advise
-    /// a shorter next wake window after these, so the summary says so.
-    private static let shortNap: TimeInterval = 45 * 60
-
     @Environment(\.dynamicTypeSize) private var typeSize
     @ScaledMetric(relativeTo: .title2) private var ringSize = 104.0
 
@@ -70,7 +67,7 @@ struct SleepCard: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
-                        Text("SLEEPING")
+                        Text("DO NOT DISTURB")
                             .font(Theme.text(12, .black, relativeTo: .caption))
                             .tracking(1.5)
                             .foregroundStyle(Theme.sleepInk)
@@ -149,7 +146,7 @@ struct SleepCard: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 8) {
-                    Text(justWokeDuration == nil ? "NEXT NAP" : "SHE'S AWAKE")
+                    Text(justWokeDuration == nil ? "SLEEPY IN…" : "WIDE AWAKE ☀️")
                         .font(Theme.text(12, .black, relativeTo: .caption))
                         .tracking(1.5)
                         .foregroundStyle(Theme.sleepInk)
@@ -166,18 +163,19 @@ struct SleepCard: View {
                     Text("slept \(Format.duration(justWokeDuration))")
                         .font(Theme.display(24, relativeTo: .title2))
                         .foregroundStyle(Theme.ink)
-                    if justWokeDuration < Self.shortNap {
-                        Text("short nap — her next window may be shorter")
-                            .font(Theme.text(12, relativeTo: .caption))
-                            .foregroundStyle(Theme.softInk)
-                    }
                 }
 
                 if let nextNap {
                     Text((justWokeDuration == nil ? "" : "next nap ")
                         + nextNapText(nextNap))
-                        .font(Theme.text(14, relativeTo: .subheadline))
+                        // Lead with the nap time when we're just waiting;
+                        // stay secondary right after a wake, where the big
+                        // "slept …" summary is the headline.
+                        .font(justWokeDuration == nil
+                              ? Theme.display(20, relativeTo: .title3)
+                              : Theme.text(14, relativeTo: .subheadline))
                         .foregroundStyle(Theme.ink)
+                        .padding(.top, justWokeDuration == nil ? 2 : 0)
                 } else {
                     Text("Log the first nap to start predictions")
                         .font(Theme.text(14, relativeTo: .subheadline))
@@ -187,15 +185,6 @@ struct SleepCard: View {
                     Text(lastSleptText)
                         .font(Theme.text(12, relativeTo: .caption))
                         .foregroundStyle(Theme.softInk)
-                }
-                // Under ~4 months sleep pressure is fuzzy — the expert
-                // consensus is cues over clocks, so say so instead of
-                // letting the window read as gospel.
-                if nextNap != nil, ageBand != .older {
-                    Text("her sleepy cues beat the clock at this age")
-                        .font(Theme.text(12, relativeTo: .caption))
-                        .foregroundStyle(Theme.softInk)
-                        .italic()
                 }
             }
             .accessibilityElement(children: .ignore)
@@ -216,30 +205,30 @@ struct SleepCard: View {
                 .padding(.top, 4)
             }
 
-            pill("Start nap", color: Theme.sleepInk, action: onStartNap)
+            // Gold pill with dark-ink text — the sunny counterpart to the
+            // blue "Wake up" pill, and readable where white-on-gold isn't.
+            pill("Start nap", color: Theme.awakeButton, textColor: Theme.ink,
+                 action: onStartNap)
                 .padding(.top, 16)
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(alignment: .topTrailing) {
-            Circle()
-                .fill(Theme.sleepBadge)
-                .frame(width: 120, height: 120)
-                .offset(x: 20, y: -30)
-        }
-        .background(.white)
+        // Warm yellow "sun" fill — awake reads clearly apart from the blue
+        // "moon" asleep card. The full fill carries the theme, so the old
+        // blue corner circle is gone.
+        .background(Theme.awakeBadge)
         .clipShape(RoundedRectangle(cornerRadius: 28))
         .cardShadow()
     }
 
     // MARK: - Pieces
 
-    private func pill(_ title: String, color: Color,
+    private func pill(_ title: String, color: Color, textColor: Color = .white,
                       action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title)
                 .font(Theme.display(17, relativeTo: .headline))
-                .foregroundStyle(.white)
+                .foregroundStyle(textColor)
                 .frame(maxWidth: .infinity, minHeight: 50)
                 .background(color, in: Capsule())
         }
@@ -308,11 +297,7 @@ struct SleepCard: View {
     private var awakeAccessibilityLabel: String {
         var label = ""
         if let justWokeDuration {
-            label += "She's awake, slept \(Format.duration(justWokeDuration))."
-            if justWokeDuration < Self.shortNap {
-                label += " Short nap, her next window may be shorter."
-            }
-            label += " "
+            label += "She's awake, slept \(Format.duration(justWokeDuration)). "
         }
         guard let nextNap else {
             return label + "Next nap. Log the first nap to start predictions."

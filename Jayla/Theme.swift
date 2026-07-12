@@ -41,6 +41,11 @@ enum Theme {
     static let sleepBadge = Color(hex: "DDF0FF")   // soft sky blue background
     static let sleepInk   = Color(hex: "4DA6FF")   // vibrant sky blue
 
+    // Awake — warm "sun" yellow, so the awake card reads clearly apart
+    // from the blue asleep card at a glance.
+    static let awakeBadge  = Color(hex: "FFF4CC")   // soft yellow card fill
+    static let awakeButton = Color(hex: "FFBE00")   // gold Start-nap pill (dark ink text)
+
     // Poop — warm brown, sampled from the kawaii poop icon
     static let poopInk    = Color(hex: "A6713E")   // icon brown ("+" button, count)
     static let poopBorder = Color(hex: "C69C6D")   // tan ring on the white tile
@@ -63,6 +68,15 @@ enum Theme {
     static let keepsakeCard = Color(hex: "FDF6E3") // paler cream than background
     static let keepsakeTape = Color(hex: "D9C49A") // washi tape tan
     static let keepsakeDate = Color(hex: "A6512E") // warm terracotta "born …" line
+
+    // Empty 24h tracks on the history charts. Cool light gray on
+    // purpose: cream tracks made the whole chart read as one yellow
+    // block against the cream page — Joanne's call.
+    static let chartTrack = Color(hex: "EEF1F5")
+
+    // The pinned header bar on home/history. Coral won after blush and
+    // the icon's marigold both auditioned — Joanne's final call.
+    static let headerBar = accent
 
     // MARK: - Fonts (Baloo 2 display + Nunito body, both SIL OFL)
 

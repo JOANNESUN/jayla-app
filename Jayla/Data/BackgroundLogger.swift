@@ -52,6 +52,13 @@ actor BackgroundLogger {
 
         // Extract plain values inside the actor — models never cross
         // actor boundaries — and run the shared choke-point reschedule.
+        //
+        // Deliberately feed-only: the nap notifications (pending_nap /
+        // nap_check) are computed purely from sleep data, which logging
+        // a feed never changes, so skipping rescheduleNap here is safe.
+        // If a notification action ever writes sleep data, that path
+        // must also call Rescheduler.rescheduleNap — otherwise a stale
+        // "nap time is coming" nudge can fire mid-nap.
         guard let baby = try? modelContext.fetch(FetchDescriptor<BabyProfile>()).first else {
             NotificationScheduler.cancelFeedReminder()
             return

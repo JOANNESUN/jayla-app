@@ -11,6 +11,8 @@
 //  Deliberately no "when": parents only care how many times the baby
 //  went today, and every event still stores its timestamp for later
 //  analysis.
+//  Long-pressing the tile (anywhere but the "+") asks to undo the
+//  latest log of that activity — correction without any visible UI.
 //
 
 import SwiftUI
@@ -21,46 +23,63 @@ struct TrackerCard: View {
     // Called when the mom taps the "+". Defaults to a no-op so previews
     // and static uses don't have to supply one.
     var onLog: () -> Void = {}
+    // Called when the mom long-presses the tile — "take the last one
+    // back". The card only signals intent; HomeView owns the
+    // confirmation and the delete.
+    var onUndoRequest: () -> Void = {}
 
     // Glyphs sit next to scaling text, so they scale too. The SVGs are
     // cropped tight (no built-in margins).
-    @ScaledMetric(relativeTo: .headline) private var iconSize = 34.0
+    @ScaledMetric(relativeTo: .headline) private var iconSize = 44.0
     @ScaledMetric(relativeTo: .headline) private var plusSize = 28.0
 
-    // One row — icon · count · "+" — so the tile stays short and the
-    // whole dashboard fits the screen without scrolling.
+    // Centered column — big icon with the "+" tucked into its corner,
+    // count underneath — so nothing fights for width on a half-width
+    // tile and the text never wraps on narrower phones.
     var body: some View {
-        HStack(spacing: 8) {
+        VStack(spacing: 6) {
             Image(type.icon)
                 .resizable()
                 .scaledToFit()
                 .frame(width: iconSize, height: iconSize)
                 .accessibilityHidden(true)
+                .overlay(alignment: .bottomTrailing) {
+                    logButton.offset(x: 20, y: 8)
+                }
 
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("\(count)")
-                    .font(Theme.display(30, relativeTo: .title2))
+                    .font(Theme.display(32, relativeTo: .title))
                     .foregroundStyle(type.countColor)
                 Text("today")
-                    .font(Theme.text(12, relativeTo: .caption))
+                    .font(Theme.text(13, relativeTo: .caption))
                     .foregroundStyle(Theme.softInk)
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(type.label), \(count) today")
+            // Long-press is invisible to VoiceOver, so the undo rides
+            // along as a custom action on the count element.
+            .accessibilityAction(named: "Undo last \(type.label.lowercased())") {
+                onUndoRequest()
+            }
 
-            Spacer(minLength: 0)
-
-            logButton
+            // Makes the long-press undo discoverable; silent to VoiceOver
+            // (the custom action above already covers it).
+            UndoHint()
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 14)
+        .frame(maxWidth: .infinity)
         .background(.white, in: RoundedRectangle(cornerRadius: 22))
         .overlay(
             RoundedRectangle(cornerRadius: 22)
                 .strokeBorder(type.borderColor, lineWidth: 2)
         )
         .cardShadow()
+        // The "+" keeps winning touches on its own 44pt frame, so a
+        // long-press can never double as an accidental log.
+        .onLongPressGesture(minimumDuration: 0.5) {
+            onUndoRequest()
+        }
     }
 
     // The "+" is the ONLY tap target — a whole-card button logs by
@@ -82,6 +101,21 @@ struct TrackerCard: View {
         // The button just shows "+"; VoiceOver can't see which card it
         // sits on, so it gets the activity-specific label.
         .accessibilityLabel(type.accessibilityLogLabel)
+    }
+}
+
+/// The quiet "hold to undo" caption shared by the log surfaces — the feed
+/// hero and the poop/pee tiles. Deliberately silent to VoiceOver: each
+/// surface already exposes an "Undo last …" custom action.
+struct UndoHint: View {
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "hand.tap")
+            Text("hold to undo")
+        }
+        .font(Theme.text(10, relativeTo: .caption2))
+        .foregroundStyle(Theme.softInk)
+        .accessibilityHidden(true)
     }
 }
 

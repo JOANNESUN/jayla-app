@@ -12,6 +12,12 @@
 //  - recomputeAndReschedule()      main-actor, fetches from mainContext
 //  - reschedule(feedTimestamps:…)  plain values, callable from any actor
 //
+//  Note the asymmetry: recomputeAndReschedule refreshes feed AND nap
+//  notifications; the background path (BackgroundLogger) calls only the
+//  feed half, which is safe while notification actions can only log
+//  feeds. A future background write that touches sleep data must also
+//  call rescheduleNap.
+//
 
 import Foundation
 import SwiftData

@@ -36,6 +36,52 @@ nonisolated extension Prediction {
     }
 }
 
+nonisolated extension ForecastEngine.Input {
+
+    /// Builds the forecast's plain inputs from the same predictions the
+    /// home screen shows — the forecast card is those numbers on a
+    /// timeline, never a second opinion.
+    /// `sleeps` are (start, duration) pairs; duration nil = open nap.
+    static func build(feedTimestamps: [Date],
+                      sleeps: [(start: Date, duration: TimeInterval?)],
+                      ageBand: AgeBand,
+                      now: Date) -> ForecastEngine.Input {
+        let feed = PredictionEngine.predict(
+            timestamps: feedTimestamps,
+            now: now,
+            config: .config(for: .feed, ageBand: ageBand))
+        let sleep = PredictionEngine.predict(
+            timestamps: sleeps.map(\.start),
+            now: now,
+            config: .config(for: .sleep, ageBand: ageBand))
+        let napDuration = PredictionEngine.estimateInterval(
+            samples: sleeps.compactMap { sleep in
+                guard let duration = sleep.duration, duration > 0 else { return nil }
+                return (duration, sleep.start.addingTimeInterval(duration))
+            },
+            now: now,
+            config: .napDurationConfig(ageBand: ageBand))
+
+        // Same open-nap rule as HomeView/ActivityRepository: nil
+        // duration within the 16h runaway guard.
+        let cutoff = now.addingTimeInterval(-16 * 3_600)
+        let asleepSince = sleeps
+            .filter { $0.duration == nil && $0.start > cutoff }
+            .map(\.start).max()
+
+        var input = ForecastEngine.Input(now: now)
+        input.lastFeed = feedTimestamps.max()
+        input.feedInterval = feed?.expectedInterval
+        input.asleepSince = asleepSince
+        if let napDuration { input.napDuration = napDuration.expected }
+        input.nextNapStart = asleepSince == nil ? sleep?.nextTime : nil
+        input.napInterval = sleep?.expectedInterval
+        input.isLearning = (feed?.confidence ?? .learning) == .learning
+            && (sleep?.confidence ?? .learning) == .learning
+        return input
+    }
+}
+
 nonisolated extension PredictionEngine.Config {
 
     private static let hour: TimeInterval = 3_600

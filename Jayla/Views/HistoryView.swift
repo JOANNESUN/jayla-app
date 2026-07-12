@@ -8,9 +8,9 @@
 //
 //  Today → sleep card (total so far, live; the day as a horizontal
 //          24h strip) + count-today cards with "last 2:30 pm" lines.
-//  Month → the 30-day rhythm actogram (WHEN she sleeps), the 4-week
-//          trend card (avg/day, delta, daily line over completed days,
-//          hedged narrative chip), then per-day average cards. Wet
+//  Month → the 30-day rhythm actogram (WHEN she sleeps), then four
+//          squares: sleep avg/day (completed days only, with the
+//          week-over-week delta) and feeds/poops/pees per day. Wet
 //          diapers per day is the number the pediatrician asks for.
 //
 
@@ -18,6 +18,8 @@ import SwiftUI
 import SwiftData
 
 struct HistoryView: View {
+    let baby: BabyProfile
+
     @Query private var events: [ActivityEvent]
     @State private var page = HistoryView.initialPage
 
@@ -37,7 +39,8 @@ struct HistoryView: View {
     /// The page (and trend math) covers this many days.
     private static let daysBack = 30
 
-    init() {
+    init(baby: BabyProfile) {
+        self.baby = baby
         // One extra day so a sleep that starts before the window still
         // spills its in-window segment onto the first visible column.
         let cutoff = Calendar.current.date(
@@ -62,11 +65,6 @@ struct HistoryView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("History")
-                            .font(Theme.display(22, relativeTo: .title2))
-                            .foregroundStyle(Theme.ink)
-                            .padding(.top, 8)
-
                         pageToggle
 
                         if page == .today {
@@ -76,8 +74,12 @@ struct HistoryView: View {
                         }
                     }
                     .padding(.horizontal, 20)
+                    .padding(.top, 18)
                     .padding(.bottom, 32)
                 }
+                // Same pinned brand bar as the home tab, in place of a
+                // "History" title.
+                .safeAreaInset(edge: .top, spacing: 0) { BabyHeaderBar(baby: baby) }
                 #if DEBUG
                 .onAppear { debugDump(days) }
                 #endif
@@ -173,7 +175,7 @@ struct HistoryView: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 7)
-                        .fill(Theme.background)
+                        .fill(Theme.chartTrack)
                     ForEach(day.sleepSegments) { segment in
                         let from = geo.size.width
                             * segment.start.timeIntervalSince(day.day) / dayLength
@@ -193,14 +195,21 @@ struct HistoryView: View {
             }
             .frame(height: 20)
 
+            // fixedSize for the same reason as the actogram's labels:
+            // chart marks must never wrap at big text sizes.
             HStack {
-                Text("12a"); Spacer(); Text("6a"); Spacer()
-                Text("12p"); Spacer(); Text("6p"); Spacer(); Text("12a")
+                mark("12a"); Spacer(); mark("6a"); Spacer()
+                mark("12p"); Spacer(); mark("6p"); Spacer(); mark("12a")
             }
-            .font(Theme.text(9, relativeTo: .caption2))
             .foregroundStyle(Theme.softInk.opacity(0.8))
         }
         .accessibilityHidden(true)
+    }
+
+    private func mark(_ label: String) -> some View {
+        Text(label)
+            .font(Theme.text(9, relativeTo: .caption2))
+            .fixedSize()
     }
 
     /// "last 2:30 pm" — or an honest blank early in the day.
@@ -225,58 +234,78 @@ struct HistoryView: View {
     @ViewBuilder
     private func monthPage(days: [DaySummary]) -> some View {
         PatternChartView(days: days)
-
-        // Today is still being written — a half-day would drag the
-        // line and the average down, so the trend reads completed
-        // days only.
-        let complete = Array(days.dropLast())
-        if let trends = DayLog.trends(days: complete) {
-            trendCard(trends, days: complete)
-        }
-
-        aggregates(days: days)
+        statGrid(days: days)
     }
 
-    // MARK: - Trend card
+    // MARK: - Stat squares
 
-    /// The 4-week sleep trend: average, week-over-week delta, the
-    /// daily line, and the interpretation chip.
-    private func trendCard(_ trends: TrendSummary, days: [DaySummary]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("SLEEP TREND · LAST 4 WEEKS")
-                .font(Theme.text(12, .black, relativeTo: .caption))
-                .tracking(1.5)
-                .foregroundStyle(Theme.softInk)
+    /// The month in four squares — sleep average, then feeds, poops
+    /// and pees per day. Averages only, no monthly totals; sleep and
+    /// naps deliberately one number (Joanne's call: don't split them).
+    private func statGrid(days: [DaySummary]) -> some View {
+        // Today is still being written — a half-day would drag the
+        // sleep average down, so the trend reads completed days only.
+        let trends = DayLog.trends(days: Array(days.dropLast()))
+        let tracked = max(days.filter { !$0.isEmpty }.count, 1)
+        let feeds = days.reduce(0) { $0 + $1.feedCount }
+        let poops = days.reduce(0) { $0 + $1.poopCount }
+        let pees = days.reduce(0) { $0 + $1.peeCount }
 
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(trends.avgSleepPerDay > 0
-                    ? Format.duration(trends.avgSleepPerDay) : "—")
-                    .font(Theme.display(30, relativeTo: .title))
-                    .foregroundStyle(Theme.sleepInk)
-                deltaBadge(trends)
-                Text("avg / day\(trendWord(trends.direction))")
-                    .font(Theme.text(13, relativeTo: .footnote))
-                    .foregroundStyle(Theme.softInk)
+        return LazyVGrid(columns: [GridItem(.flexible(), spacing: 14),
+                                   GridItem(.flexible(), spacing: 14)],
+                         spacing: 14) {
+            squareCard(.sleep,
+                       value: (trends?.avgSleepPerDay ?? 0) > 0
+                          ? Format.duration(trends!.avgSleepPerDay) : "—",
+                       unit: "sleep / day",
+                       a11y: sleepAccessibilityLabel(trends)) {
+                if let trends { deltaBadge(trends) }
+            }
+            squareCard(.feed, value: perDay(feeds, over: tracked),
+                       unit: "feeds / day")
+            squareCard(.poop, value: perDay(poops, over: tracked),
+                       unit: "poops / day")
+            squareCard(.pee, value: perDay(pees, over: tracked),
+                       unit: "pees / day")
+        }
+    }
+
+    /// One square: icon chip, the average, what it counts.
+    private func squareCard(_ type: ActivityType, value: String,
+                            unit: String, a11y: String? = nil,
+                            @ViewBuilder badge: () -> some View = { EmptyView() }
+    ) -> some View {
+        VStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 14)
+                .fill(chipColor(type))
+                .frame(width: 44, height: 44)
+                .overlay(
+                    Image(iconAsset(type))
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 27, height: 27)
+                )
+
+            HStack(alignment: .firstTextBaseline, spacing: 5) {
+                Text(value)
+                    .font(Theme.display(24, relativeTo: .title2))
+                    .foregroundStyle(type.countColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                badge()
             }
 
-            sleepLine(days: days)
-
-            Text(narrative(for: trends))
-                .font(Theme.text(13, .extraBold, relativeTo: .footnote))
-                .foregroundStyle(Theme.cobalt)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.sleepBadge,
-                            in: RoundedRectangle(cornerRadius: 12))
+            Text(unit)
+                .font(Theme.text(12, relativeTo: .caption))
+                .foregroundStyle(Theme.softInk)
         }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.white)
-        .clipShape(RoundedRectangle(cornerRadius: 28))
+        .padding(.vertical, 16)
+        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity)
+        .background(.white, in: RoundedRectangle(cornerRadius: 22))
         .cardShadow()
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(trendAccessibilityLabel(trends))
+        .accessibilityLabel(a11y ?? "\(type.label), \(value) \(unit)")
     }
 
     /// "▲ 40m" week over week — only when the direction is earned.
@@ -297,96 +326,7 @@ struct HistoryView: View {
         }
     }
 
-    private func trendWord(_ direction: TrendSummary.Direction) -> String {
-        switch direction {
-        case .up:      " · trending up"
-        case .down:    " · easing off"
-        case .steady:  " · steady"
-        case .unknown: ""
-        }
-    }
-
-    /// Daily sleep totals as one line across the month, days without
-    /// sleep data skipped rather than drawn as false zeros.
-    private func sleepLine(days: [DaySummary]) -> some View {
-        let points: [(index: Int, total: TimeInterval)] = days.enumerated()
-            .filter { !$0.element.sleepSegments.isEmpty }
-            .map { ($0.offset, $0.element.sleepTotal) }
-        let maxTotal = max(points.map(\.total).max() ?? 1, 1)
-        let span = Double(max(days.count - 1, 1))
-
-        return VStack(spacing: 4) {
-            GeometryReader { geo in
-                let w = geo.size.width, h = geo.size.height
-                let at = { (p: (index: Int, total: TimeInterval)) in
-                    CGPoint(x: w * Double(p.index) / span,
-                            y: h * (1 - 0.9 * p.total / maxTotal))
-                }
-                if points.count >= 2 {
-                    Path { path in
-                        path.move(to: at(points[0]))
-                        for point in points.dropFirst() {
-                            path.addLine(to: at(point))
-                        }
-                        path.addLine(to: CGPoint(x: at(points[points.count - 1]).x, y: h))
-                        path.addLine(to: CGPoint(x: at(points[0]).x, y: h))
-                        path.closeSubpath()
-                    }
-                    .fill(LinearGradient(
-                        colors: [Theme.sleepBadge, Theme.sleepBadge.opacity(0)],
-                        startPoint: .top, endPoint: .bottom))
-
-                    Path { path in
-                        path.move(to: at(points[0]))
-                        for point in points.dropFirst() {
-                            path.addLine(to: at(point))
-                        }
-                    }
-                    .stroke(Theme.sleepInk,
-                            style: StrokeStyle(lineWidth: 2.5,
-                                               lineCap: .round,
-                                               lineJoin: .round))
-
-                    let last = at(points[points.count - 1])
-                    Circle()
-                        .fill(.white)
-                        .stroke(Theme.sleepInk, lineWidth: 2.5)
-                        .frame(width: 9, height: 9)
-                        .position(last)
-                } else {
-                    Text("a few more days of naps will draw the trend here")
-                        .font(Theme.text(12, relativeTo: .caption))
-                        .foregroundStyle(Theme.softInk)
-                        .frame(width: w, height: h)
-                }
-            }
-            .frame(height: 88)
-
-            HStack {
-                Text("Wk 1"); Spacer(); Text("Wk 2"); Spacer()
-                Text("Wk 3"); Spacer(); Text("Wk 4")
-            }
-            .font(Theme.text(10, relativeTo: .caption2))
-            .foregroundStyle(Theme.softInk.opacity(0.8))
-        }
-        .accessibilityHidden(true)
-    }
-
     // MARK: - Aggregate cards
-
-    @ViewBuilder
-    private func aggregates(days: [DaySummary]) -> some View {
-        let tracked = max(days.filter { !$0.isEmpty }.count, 1)
-        let feeds = days.reduce(0) { $0 + $1.feedCount }
-        let poops = days.reduce(0) { $0 + $1.poopCount }
-        let pees = days.reduce(0) { $0 + $1.peeCount }
-        aggregateCard(.feed, headline: perDay(feeds, over: tracked),
-                      unit: "/ day", subline: "\(feeds) this month")
-        aggregateCard(.poop, headline: perDay(poops, over: tracked),
-                      unit: "/ day", subline: "\(poops) this month")
-        aggregateCard(.pee, headline: perDay(pees, over: tracked),
-                      unit: "/ day", subline: "\(pees) this month")
-    }
 
     /// One activity, one number — Joanne's call: everything that isn't
     /// sleep is just an aggregate. Icon chip, name, context line, and
@@ -474,11 +414,12 @@ struct HistoryView: View {
         String(format: "%.1f", Double(total) / Double(days))
     }
 
-    private func trendAccessibilityLabel(_ trends: TrendSummary) -> String {
-        let avg = trends.avgSleepPerDay > 0
-            ? "She sleeps \(Format.duration(trends.avgSleepPerDay)) a day this week. "
-            : ""
-        return avg + narrative(for: trends)
+    private func sleepAccessibilityLabel(_ trends: TrendSummary?) -> String {
+        guard let trends, trends.avgSleepPerDay > 0 else {
+            return "Sleep. Not enough data yet."
+        }
+        return "She sleeps \(Format.duration(trends.avgSleepPerDay)) a day this week. "
+            + narrative(for: trends)
     }
 
     // MARK: - Data
@@ -505,6 +446,8 @@ struct HistoryView: View {
 }
 
 #Preview {
-    HistoryView()
+    HistoryView(baby: BabyProfile(name: "Jayla",
+                                  birthdate: Calendar.current.date(
+                                      byAdding: .month, value: -5, to: .now)!))
         .modelContainer(for: [ActivityEvent.self, BabyProfile.self], inMemory: true)
 }

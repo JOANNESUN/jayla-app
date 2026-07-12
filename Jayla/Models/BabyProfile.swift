@@ -52,6 +52,27 @@ extension BabyProfile {
         return "\(months) month\(months == 1 ? "" : "s") old"
     }
 
+    /// Western zodiac from the birthday — free keepsake flair, derived
+    /// like age so it never needs storing or migrating.
+    var zodiacSign: String {
+        let comps = Calendar.current.dateComponents([.month, .day], from: birthdate)
+        guard let month = comps.month, let day = comps.day else { return "" }
+        switch (month, day) {
+        case (3, 21...), (4, ...19):   return "aries"
+        case (4, _), (5, ...20):       return "taurus"
+        case (5, _), (6, ...20):       return "gemini"
+        case (6, _), (7, ...22):       return "cancer"
+        case (7, _), (8, ...22):       return "leo"
+        case (8, _), (9, ...22):       return "virgo"
+        case (9, _), (10, ...22):      return "libra"
+        case (10, _), (11, ...21):     return "scorpio"
+        case (11, _), (12, ...21):     return "sagittarius"
+        case (12, _), (1, ...19):      return "capricorn"
+        case (1, _), (2, ...18):       return "aquarius"
+        default:                       return "pisces"
+        }
+    }
+
     var ageBand: AgeBand {
         switch ageInDays {
         case ..<31:    .newborn
