@@ -166,15 +166,7 @@ struct SleepCard: View {
                 }
 
                 if let nextNap {
-                    Text((justWokeDuration == nil ? "" : "next nap ")
-                        + nextNapText(nextNap))
-                        // Lead with the nap time when we're just waiting;
-                        // stay secondary right after a wake, where the big
-                        // "slept …" summary is the headline.
-                        .font(justWokeDuration == nil
-                              ? Theme.display(20, relativeTo: .title3)
-                              : Theme.text(14, relativeTo: .subheadline))
-                        .foregroundStyle(Theme.ink)
+                    napTimeView(nextNap)
                         .padding(.top, justWokeDuration == nil ? 2 : 0)
                 } else {
                     Text("Log the first nap to start predictions")
@@ -213,10 +205,10 @@ struct SleepCard: View {
         }
         .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
-        // Warm yellow "sun" fill — awake reads clearly apart from the blue
-        // "moon" asleep card. The full fill carries the theme, so the old
-        // blue corner circle is gone.
-        .background(Theme.awakeBadge)
+        // White fill — the yellow blended into the cream page, so the card
+        // is white (like the feed hero) and the gold Start-nap pill carries
+        // the sunny cue that sets awake apart from the blue asleep card.
+        .background(.white)
         .clipShape(RoundedRectangle(cornerRadius: 28))
         .cardShadow()
     }
@@ -258,8 +250,45 @@ struct SleepCard: View {
         return "~\(minutes)m left"
     }
 
+    /// The awake next-nap display. Right after a wake it stays a compact
+    /// one-liner under the big "slept …" summary; the rest of the time the
+    /// time range leads (e.g. "3:20 PM ~ 3:50 PM"), with "between" and the
+    /// learning caveat as small captions around it.
+    @ViewBuilder
+    private func napTimeView(_ prediction: Prediction) -> some View {
+        if justWokeDuration != nil {
+            Text("next nap " + nextNapText(prediction))
+                .font(Theme.text(14, relativeTo: .subheadline))
+                .foregroundStyle(Theme.ink)
+        } else if prediction.nextTime <= now {
+            Text("could start any time now")
+                .font(Theme.display(20, relativeTo: .title3))
+                .foregroundStyle(Theme.ink)
+        } else {
+            let window = prediction.napWindow(ageBand: ageBand)
+            let range = window.lowerBound <= now
+                ? "now ~ \(Format.time(window.upperBound))"
+                : "\(Format.time(window.lowerBound)) ~ \(Format.time(window.upperBound))"
+            VStack(alignment: .leading, spacing: 1) {
+                Text("between")
+                    .font(Theme.text(11, relativeTo: .caption))
+                    .foregroundStyle(Theme.softInk)
+                Text(range)
+                    .font(Theme.display(20, relativeTo: .title3))
+                    .foregroundStyle(Theme.ink)
+                if prediction.confidence == .learning {
+                    Text("still learning")
+                        .font(Theme.text(10, relativeTo: .caption2))
+                        .foregroundStyle(Theme.softInk)
+                }
+            }
+        }
+    }
+
     // A range, not a point: the window IS the hedge, so the caveat
-    // suffix only stays while the engine is still learning.
+    // suffix only stays while the engine is still learning. Still backs
+    // the just-woke line and the VoiceOver label ("and" reads better
+    // than the visual "~").
     private func nextNapText(_ prediction: Prediction) -> String {
         guard prediction.nextTime > now else { return "could start any time now" }
         let window = prediction.napWindow(ageBand: ageBand)
